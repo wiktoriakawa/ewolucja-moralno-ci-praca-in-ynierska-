@@ -39,7 +39,7 @@ NIC = 7      # pozostanie w miejscu – świadoma akcja, w dylemacie obojętna
 LICZBA_AKCJI = 8
 
 
-# rozmiar sieci neuronowej: N_WE wejść, N_WY wyjść (bez biasu), 1 warstwa ukryta
+# rozmiar sieci neuronowej: N_WE wejść, N_WY wyjść 
 N_WE = 5             # liczba wejść (kolumny macierzy obserwacji, bez biasu)
 N_WY = LICZBA_AKCJI  # jedno wyjście na każdą akcję – obie wartości nie mogą się rozjechać
 
