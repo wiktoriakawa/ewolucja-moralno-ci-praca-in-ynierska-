@@ -27,3 +27,6 @@ htmlcov/
 # Edytory
 .vscode/
 .idea/
+
+# Lokalne notatki ze spotkań
+dyskusja.md
