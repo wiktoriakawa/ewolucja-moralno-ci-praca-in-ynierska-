@@ -54,7 +54,7 @@ i wizualizacji wyników.
 python -m venv .venv
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\.venv\Scripts\Activate.ps1
-python -m pip install numpy pytest
+python -m pip install -r requirements.txt
 ```
 
 Zmiana polityki wykonywania dotyczy tylko bieżącego okna PowerShell i przestaje
@@ -65,7 +65,7 @@ obowiązywać po jego zamknięciu.
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install numpy pytest
+python -m pip install -r requirements.txt
 ```
 
 ## Uruchamianie testów
