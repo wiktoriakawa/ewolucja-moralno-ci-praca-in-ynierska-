@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
 
-#przemieszczanie sie
+# przemieszczanie sie
 
 POLNOC = 0
 WSCHOD = 1
@@ -55,7 +55,7 @@ OBS_ZASOBY_SASIADA = 4    # zasoby agenta przed agentem (0, gdy go nie ma)
 PUSTE = -1
 
 
-#klasa stanu symulacji
+# klasa stanu symulacji
 
 
 @dataclass(eq=False, slots=True, kw_only=True)
@@ -87,7 +87,7 @@ class Stan:
     # --- liczniki ---
     nastepny_id: int = 0                 # kolejny wolny identyfikator
     pokolenie: int = 0                   # numer pokolenia (0 = pokolenie zerowe)
-    krok: int = 0                        # numer kroku w bieżącym pokoleniu
+    krok: int = 0                        # numer kroku w bieżącym pokoleniu liczony od 0
 
 
 def pusty_stan(*, H: int, W: int, N: int, L: int) -> Stan:

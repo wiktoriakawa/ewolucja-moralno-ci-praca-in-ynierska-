@@ -1,12 +1,3 @@
-"""Testy modułu srodowisko.py – testy minimalne na Lab02 (instrukcja, krok 1).
-
-- test_utworz_plansze_... jest gotowy – to wzór układu testu. Dopóki nie
-  napiszesz utworz_plansze, kończy się błędem NotImplementedError i to jest
-  w porządku: najpierw czerwono, potem zielono.
-- dwa pozostałe testy piszesz sama: usuń linię pytest.skip(...) i uzupełnij
-  kroki opisane w komentarzach.
-Pozostałe testy środowiska (lista z instrukcji v0.1) – etap 4, asystent/Lab04/README.md.
-"""
 import numpy as np
 import pytest
 
@@ -52,8 +43,6 @@ def stan():
     return s
 
 
-# --- utworz_plansze: test gotowy (wzór: przygotuj – wykonaj – sprawdź) ------------
-
 def test_utworz_plansze_ksztalt_zakres_i_pelne_pola(cfg, rng):
     # przygotuj: cfg i rng dostarczają fixture powyżej
 
@@ -69,10 +58,9 @@ def test_utworz_plansze_ksztalt_zakres_i_pelne_pola(cfg, rng):
     assert not np.shares_memory(zasoby_pol, pojemnosc)       # ale to dwie osobne tablice
 
 
-# --- odrost: test do napisania -----------------------------------------------------
 
 def test_odrost_nie_przekracza_pojemnosci(stan):
-        # przygotuj
+    # przygotuj
     alfa = 1.5
 
     # wykonaj
@@ -84,7 +72,6 @@ def test_odrost_nie_przekracza_pojemnosci(stan):
     assert stan.zasoby_pol[0, 2] == pytest.approx(4.0)    # 3.9 + 1.5 = 5.4, przycięte do 4.0
 
 
-# --- zbierz: test do napisania -----------------------------------------------------
 
 def test_zbierz_zachowuje_sume_i_zeruje_pole(stan):
     # przygotuj
