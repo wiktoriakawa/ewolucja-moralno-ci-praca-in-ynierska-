@@ -37,7 +37,8 @@ def ruch(stan: Stan, i: int, kierunek: int) -> bool:
 
     Argumenty: stan, indeks agenta i kierunek ruchu (0 = N, 1 = E, 2 = S, 3 = W).
     Zwraca: True, jeśli agent się przesunął; False, jeśli cel był poza planszą (ściana) albo zajęty przez innego agenta.
-    Zmienia: stan.pozycje[i], stan.zajetosc. Nie zmienia kierunku patrzenia agenta.
+    Zmienia: stan.kierunki[i] zawsze; stan.pozycje[i] i stan.zajetosc tylko przy
+    udanym ruchu.
     """
 
     stan.kierunki[i] = kierunek

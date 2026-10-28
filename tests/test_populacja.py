@@ -93,6 +93,19 @@ def test_ruch_na_wolne_pole_zachowuje_niezmienniki(stan):
     sprawdz_niezmienniki(stan)
 
 
+def test_usun_martwych_czysci_zajetosc_i_zostawia_zywych(stan):
+    stan.zasoby_agentow[0] = 0.0
+    maska = stan.zywy & (stan.zasoby_agentow <= 0)
+
+    populacja.usun_martwych(stan, maska)
+
+    assert not stan.zywy[0]
+    assert stan.zajetosc[0, 1] == PUSTE
+    assert stan.zywy[1]
+    assert stan.zajetosc[1, 1] == 1
+    sprawdz_niezmienniki(stan)
+
+
 # --- obserwacje przy ścianie: test do napisania -------------------------------------
 
 def test_obserwacje_przy_scianie(stan):
