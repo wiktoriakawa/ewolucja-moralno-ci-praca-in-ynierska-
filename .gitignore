@@ -30,3 +30,6 @@ htmlcov/
 
 # Lokalne notatki ze spotkań
 dyskusja.md
+
+# Lokalna wersja kontraktu roboczego
+docs/kontrakt.md
