@@ -13,7 +13,7 @@ T = 3.0                   # próg kwalifikacji
 
 @pytest.fixture
 def stan():
-    """Koniec pokolenia na planszy 3×4, czterech agentów (ids 0–3):
+    """Koniec pokolenia na planszy 3×4, czterech agentów (ids 10, 20, 30, 40):
 
             kol 0   kol 1   kol 2   kol 3
       w 0   [A0]     .       .      [A1]      A0: 5.0 (≥ T)     A1: 2.0 (< T)
@@ -34,8 +34,8 @@ def stan():
     for i in (0, 1, 2):  # martwego A3 nie wpisujemy na mapę
         s.zajetosc[s.pozycje[i, 0], s.pozycje[i, 1]] = i
     s.zasoby_agentow[:] = [5.0, 2.0, 3.0, 9.0]
-    s.ids[:] = np.arange(N)
-    s.nastepny_id = N
+    s.ids[:] = [10, 20, 30, 40]  # trwałe ID celowo różne od indeksów 0–3
+    s.nastepny_id = 41
     s.genomy[:] = np.arange(N)[:, None]  # wiersz i: 48 razy wartość i
     sprawdz_niezmienniki(s)  # sam stan testowy też musi być poprawny
     return s
@@ -94,6 +94,7 @@ def test_nowe_pokolenie_rodzice_tylko_z_zakwalifikowanych(stan, cfg):
     cfg["ewolucja"]["r"] = 0.0
     maska, _ = ewolucja.kwalifikacja(stan, T)  # rodzicami mogą być tylko A0 i A2
     rng = np.random.default_rng(7)
+    stare_ids = stan.ids.copy()  # kopia: nowe_pokolenie nadpisuje stan.ids w miejscu
 
     # wykonaj
     rodzice = ewolucja.nowe_pokolenie(stan, maska, cfg, rng)
@@ -103,9 +104,10 @@ def test_nowe_pokolenie_rodzice_tylko_z_zakwalifikowanych(stan, cfg):
     assert set(rodzice.tolist()) <= {0, 2}
 
     # sprawdź potomków: nowe identyfikatory, rodowód, zasoby startowe, numer pokolenia
-    assert stan.ids.tolist() == [4, 5, 6, 7]
-    assert stan.nastepny_id == 8
-    np.testing.assert_array_equal(stan.rodzic, rodzice)  # w fixture stare ids = indeksy
+    assert stan.ids.tolist() == [41, 42, 43, 44]
+    assert stan.nastepny_id == 45
+    # rodzice to indeksy w starym pokoleniu, stan.rodzic – trwałe ID rodzica
+    np.testing.assert_array_equal(stan.rodzic, stare_ids[rodzice])
     assert stan.zywy.all()
     np.testing.assert_allclose(stan.zasoby_agentow, 10.0)
     assert stan.pokolenie == 1
