@@ -3,8 +3,13 @@
 import numpy as np
 import pytest
 
-from moralnosc import petla
-from moralnosc.pomiar import PRZYCZYNA_WYCZERPANIE, PRZYCZYNA_ZYJE, pusty_pomiar
+from moralnosc import ewolucja, petla
+from moralnosc.pomiar import (
+    PRZYCZYNA_KONIEC_POKOLENIA,
+    PRZYCZYNA_WYCZERPANIE,
+    PRZYCZYNA_ZYJE,
+    pusty_pomiar,
+)
 from moralnosc.stan import (
     DZIEL,
     KRADNIJ,
@@ -48,6 +53,35 @@ def cfg():
             "m": 1.0,
         },
         "zasoby": {"alfa": 0.5},
+    }
+
+
+@pytest.fixture
+def cfg_przebiegu():
+    """Mała kompletna konfiguracja przebiegu: 3 pokolenia po 2 kroki."""
+    return {
+        "przebieg": {"ziarno": 67, "pokolenia": 3, "kroki": 2},
+        "plansza": {"H": 3, "W": 3},
+        "populacja": {"N": 2},
+        "zasoby": {"c_min": 1.0, "c_max": 2.0, "alfa": 1.0},
+        "obserwacje": {"skala": 2.0},
+        "koszty": {
+            "ruch": 0.0,
+            "s": 1.0,
+            "c_k": 0.5,
+            "p": 1.0,
+            "x": 1.0,
+            "m": 0.1,
+        },
+        "siec": {"tryb": "argmax", "tau": 1.0},
+        "ewolucja": {
+            "T": 0.0,
+            "E0": 100.0,
+            "r": 0.0,
+            "sigma": 0.0,
+            "w_max": 4.0,
+            "R": 1,
+        },
     }
 
 
@@ -309,3 +343,64 @@ def test_krok_rejestruje_smierc_przed_zwiekszeniem_numeru_kroku(stan, cfg):
     )
     assert stan.zywy.tolist() == [True, False]
     assert stan.krok == 1
+
+
+def test_wykonaj_pokolenie_konczy_sie_po_wymarciu(cfg_przebiegu):
+    """Wymarcie kończy pokolenie przed limitem kroków i bez rodziców."""
+    cfg_przebiegu["ewolucja"]["E0"] = 1.0
+    cfg_przebiegu["koszty"]["m"] = 100.0
+    cfg_przebiegu["przebieg"]["kroki"] = 5
+    rng = np.random.default_rng(cfg_przebiegu["przebieg"]["ziarno"])
+    stan = ewolucja.pokolenie_zerowe(cfg_przebiegu, rng)
+
+    pomiar, maska, awaryjny, przetrwal = petla.wykonaj_pokolenie(
+        stan, cfg_przebiegu, rng
+    )
+
+    assert przetrwal is False
+    assert awaryjny is False
+    assert not maska.any()
+    assert stan.krok == 1
+    assert not stan.zywy.any()
+    assert pomiar.akcje_licznik.sum() == cfg_przebiegu["populacja"]["N"]
+    np.testing.assert_array_equal(pomiar.krok_smierci, [0, 0])
+    np.testing.assert_array_equal(
+        pomiar.przyczyna_smierci,
+        [PRZYCZYNA_WYCZERPANIE, PRZYCZYNA_WYCZERPANIE],
+    )
+
+
+def test_uruchom_przebieg_wykonuje_pokolenia_i_callback(cfg_przebiegu):
+    """Callback widzi każde zakończone pokolenie przed utworzeniem potomków."""
+    migawki = []
+
+    def zapamietaj(stan, pomiar, maska, awaryjny):
+        migawki.append(
+            {
+                "pokolenie": stan.pokolenie,
+                "krok": stan.krok,
+                "ids": stan.ids.copy(),
+                "akcje": int(pomiar.akcje_licznik.sum()),
+                "przyczyny": pomiar.przyczyna_smierci.copy(),
+                "rodzice": int(maska.sum()),
+                "awaryjny": awaryjny,
+            }
+        )
+
+    stan = petla.uruchom_przebieg(cfg_przebiegu, po_pokoleniu=zapamietaj)
+
+    assert [m["pokolenie"] for m in migawki] == [0, 1, 2]
+    assert [m["krok"] for m in migawki] == [2, 2, 2]
+    assert [m["akcje"] for m in migawki] == [4, 4, 4]
+    assert [m["rodzice"] for m in migawki] == [2, 2, 2]
+    assert [m["awaryjny"] for m in migawki] == [False, False, False]
+    np.testing.assert_array_equal(migawki[0]["ids"], [0, 1])
+    np.testing.assert_array_equal(migawki[1]["ids"], [2, 3])
+    np.testing.assert_array_equal(migawki[2]["ids"], [4, 5])
+    for migawka in migawki:
+        np.testing.assert_array_equal(
+            migawka["przyczyny"],
+            [PRZYCZYNA_KONIEC_POKOLENIA, PRZYCZYNA_KONIEC_POKOLENIA],
+        )
+    assert stan.pokolenie == 2
+    assert stan.krok == 2
