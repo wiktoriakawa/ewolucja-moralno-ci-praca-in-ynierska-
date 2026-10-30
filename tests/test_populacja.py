@@ -38,7 +38,7 @@ def stan():
     return s
 
 
-# --- obserwacje: test gotowy (wzór) --------------------------------------------------
+# --- obserwacje ----------------------------------------------------------------------
 
 def test_obserwacje_agenta_zwroconego_do_sasiada(stan):
     # wykonaj
@@ -57,11 +57,10 @@ def test_obserwacje_agenta_zwroconego_do_sasiada(stan):
     np.testing.assert_allclose(obs[1], [6.0 / 4, 0.5 / 4, 4.0 / 4, 0.0, 0.0])
 
 
-# --- rozmiesc_losowo: test do napisania ---------------------------------------------
+# --- rozmiesc_losowo -----------------------------------------------------------------
 
 @pytest.mark.parametrize("N", [5, H * W])   # zwykły przypadek i plansza zajęta w całości
 def test_rozmiesc_losowo_bez_kolizji(N):
-
     s = pusty_stan(H=H, W=W, N=N, L=48)
     rng = np.random.default_rng(1)
     populacja.rozmiesc_losowo(s, rng)
@@ -69,7 +68,7 @@ def test_rozmiesc_losowo_bez_kolizji(N):
     sprawdz_niezmienniki(s)
 
 
-# --- ruch: testy do napisania --------------------------------------------------------
+# --- ruch ----------------------------------------------------------------------------
 
 def test_ruch_w_sciane_i_na_zajete_pole(stan):
     assert not populacja.ruch(stan, 0, POLNOC)          # ściana
@@ -81,7 +80,6 @@ def test_ruch_w_sciane_i_na_zajete_pole(stan):
     assert tuple(stan.pozycje[1]) == (1, 1)
 
     sprawdz_niezmienniki(stan)
-
 
 
 def test_ruch_na_wolne_pole_zachowuje_niezmienniki(stan):
@@ -106,15 +104,26 @@ def test_usun_martwych_czysci_zajetosc_i_zostawia_zywych(stan):
     sprawdz_niezmienniki(stan)
 
 
-# --- obserwacje przy ścianie: test do napisania -------------------------------------
+def test_usun_martwych_pomija_juz_martwego_agenta(stan):
+    # A0 umiera, a A1 wchodzi na jego dawne pole (0, 1). Pozycja A0 w tablicy
+    # jest już nieaktualna, ale nadal wskazuje (0, 1).
+    populacja.usun_martwych(stan, np.array([True, False]))
+    assert populacja.ruch(stan, 1, POLNOC)
+
+    # Ponowne usunięcie A0 nie może zdjąć z mapy żywego A1.
+    populacja.usun_martwych(stan, np.array([True, False]))
+
+    assert stan.zajetosc[0, 1] == 1
+    assert stan.zywy.tolist() == [False, True]
+    sprawdz_niezmienniki(stan)
+
+
+# --- obserwacje przy ścianie ---------------------------------------------------------
 
 def test_obserwacje_przy_scianie(stan):
-    # przygotuj: obróć A0 do ściany: stan.kierunki[0] = POLNOC (pole przed nim: (−1, 1))
-    # wykonaj:   obs, przed = populacja.obserwacje(stan, skala=4.0)
-    # sprawdź:   kolumny 2, 3, 4 wiersza A0 są zerami; przed[0] == PUSTE
-    # Dlaczego ten test łapie pułapkę z indeksem −1: wiersz −1 to w NumPy wiersz 2,
-    # a pole (2, 1) ma zasób 2.2 – błędna implementacja zwróci 2.2 / 4 zamiast 0.
-    
+    # A0 patrzy w ścianę: pole przed nim to (−1, 1). Test łapie pułapkę z indeksem −1:
+    # wiersz −1 to w NumPy wiersz 2, a pole (2, 1) ma zasób 2.2 – błędna
+    # implementacja zwróci 2.2 / 4 zamiast 0.
     stan.kierunki[0] = POLNOC
     obs, przed = populacja.obserwacje(stan, skala=4.0)
     assert przed[0] == PUSTE
