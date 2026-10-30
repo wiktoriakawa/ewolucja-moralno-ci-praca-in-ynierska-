@@ -1,5 +1,5 @@
-"""Populacja i percepcja: rozmieszczenie agentów, ruch, pole przed agentem, obserwacje
-"""
+"""Populacja i percepcja: rozmieszczenie agentów, ruch, pole przed agentem, obserwacje."""
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -14,15 +14,13 @@ def rozmiesc_losowo(stan: Stan, rng: np.random.Generator) -> None:
               np. z pusty_stan; N ≤ H·W (sprawdza konfiguracja).
         rng:  generator przebiegu.
 
-    Nic nie zwraca, zmienia stan.pozycje, stan.zajetosc i stan.kierunki.    
-    
+    Nic nie zwraca, zmienia stan.pozycje, stan.zajetosc i stan.kierunki.
     """
-
     H = stan.zajetosc.shape[0]
     W = stan.zajetosc.shape[1]
-    N = stan.pozycje.shape[0] # liczba agentów
+    N = stan.pozycje.shape[0]  # liczba agentów
 
-    numery_pol = rng.choice(H * W, size=N, replace=False) # losowe, różne pola 
+    numery_pol = rng.choice(H * W, size=N, replace=False)  # losowe, różne pola
     wiersze, kolumny = np.divmod(numery_pol, W)
     stan.pozycje[:, 0] = wiersze
     stan.pozycje[:, 1] = kolumny
@@ -31,16 +29,15 @@ def rozmiesc_losowo(stan: Stan, rng: np.random.Generator) -> None:
     stan.kierunki[:] = rng.integers(0, 4, size=N)
 
 
-
 def ruch(stan: Stan, i: int, kierunek: int) -> bool:
     """Próba ruchu agenta i o jedno pole w zadanym kierunku (akcje 0–3).
 
     Argumenty: stan, indeks agenta i kierunek ruchu (0 = N, 1 = E, 2 = S, 3 = W).
-    Zwraca: True, jeśli agent się przesunął; False, jeśli cel był poza planszą (ściana) albo zajęty przez innego agenta.
+    Zwraca: True, jeśli agent się przesunął; False, jeśli cel był poza planszą
+    (ściana) albo zajęty przez innego agenta.
     Zmienia: stan.kierunki[i] zawsze; stan.pozycje[i] i stan.zajetosc tylko przy
     udanym ruchu.
     """
-
     stan.kierunki[i] = kierunek
     cel = stan.pozycje[i] + KIERUNKI[kierunek]
     if not (0 <= cel[0] < stan.zajetosc.shape[0] and 0 <= cel[1] < stan.zajetosc.shape[1]):
@@ -53,15 +50,19 @@ def ruch(stan: Stan, i: int, kierunek: int) -> bool:
     return True
 
 
-
 def usun_martwych(stan: Stan, maska: NDArray[np.bool_]) -> None:
     """Oznacza agentów z maski jako martwych i zdejmuje ich z mapy zajętości.
+
     Argumenty: stan symulacji i maska N wartości logicznych – True dla agentów do usunięcia.
 
     Zmienia: stan.zywy, stan.zajetosc. Tablice agentów NIE zmieniają rozmiaru
-    – martwy agent zostaje w tablicach do końca pokolenia 
+    – martwy agent zostaje w tablicach do końca pokolenia. Agenci już martwi są
+    pomijani, nawet jeśli maska ich zawiera.
     """
-
+    # Pozycja martwego agenta jest nieaktualna – na jego dawnym polu może już stać
+    # ktoś inny. Bez tego zabezpieczenia drugie usunięcie tego samego agenta
+    # skasowałoby z mapy zajętości żywego sąsiada.
+    maska = maska & stan.zywy
     stan.zywy[maska] = False
     stan.zajetosc[stan.pozycje[maska, 0], stan.pozycje[maska, 1]] = PUSTE
 
@@ -74,14 +75,15 @@ def pole_przed(stan: Stan) -> tuple[NDArray[np.int64], NDArray[np.bool_]]:
                    agenta; przy ścianie zawiera współrzędne spoza planszy (−1, H albo W);
         w_planszy: tablica N wartości logicznych – True, gdy cel leży w planszy.
     """
-
+    H, W = stan.zajetosc.shape
     cele = stan.pozycje + KIERUNKI[stan.kierunki]
-    w_planszy = (0 <= cele[:, 0]) & (cele[:, 0] < stan.zajetosc.shape[0]) & (0 <= cele[:, 1]) & (cele[:, 1] < stan.zajetosc.shape[1])
+    w_planszy = (0 <= cele[:, 0]) & (cele[:, 0] < H) & (0 <= cele[:, 1]) & (cele[:, 1] < W)
     return cele, w_planszy
 
 
 def obserwacje(stan: Stan, skala: float) -> tuple[NDArray[np.float64], NDArray[np.int64]]:
     """Wejścia sieci dla całej populacji naraz.
+
     Argumenty:
         stan:  stan symulacji.
         skala: dzielnik normalizujący zasoby (klucz obserwacje.skala, domyślnie c_max).
@@ -96,7 +98,6 @@ def obserwacje(stan: Stan, skala: float) -> tuple[NDArray[np.float64], NDArray[n
                kolumny 0, 1, 2 i 4 są podzielone przez skala, kolumna 3 – nie;
         przed: tablica N (int64) – indeks agenta stojącego przed agentem albo PUSTE.
     """
-
     cele, w_planszy = pole_przed(stan)
     bezpieczne = np.clip(cele, 0, [stan.zajetosc.shape[0] - 1, stan.zajetosc.shape[1] - 1])
     zasoby_przed = np.where(w_planszy, stan.zasoby_pol[bezpieczne[:, 0], bezpieczne[:, 1]], 0.0)
@@ -105,5 +106,7 @@ def obserwacje(stan: Stan, skala: float) -> tuple[NDArray[np.float64], NDArray[n
     zasoby_przed_agent = np.where(obecny, stan.zasoby_agentow[np.maximum(przed, 0)], 0.0)
     zasoby_wlasne = stan.zasoby_agentow / skala
     zasoby_pod = stan.zasoby_pol[stan.pozycje[:, 0], stan.pozycje[:, 1]] / skala
-    obs = np.column_stack((zasoby_wlasne, zasoby_pod, zasoby_przed / skala, obecny, zasoby_przed_agent / skala))
+    obs = np.column_stack(
+        (zasoby_wlasne, zasoby_pod, zasoby_przed / skala, obecny, zasoby_przed_agent / skala)
+    )
     return obs, przed

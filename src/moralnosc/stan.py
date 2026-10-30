@@ -45,7 +45,7 @@ NIEWYKONANA = "niewykonana"
 WYKONANA = "wykonana"
 
 
-# rozmiar sieci neuronowej: N_WE wejść, N_WY wyjść 
+# rozmiar sieci neuronowej: N_WE wejść, N_WY wyjść
 N_WE = 5             # liczba wejść (kolumny macierzy obserwacji, bez biasu)
 N_WY = LICZBA_AKCJI  # jedno wyjście na każdą akcję – obie wartości nie mogą się rozjechać
 

@@ -1,8 +1,8 @@
-"""Sieć neuronowa agentów i wybór akcji
+"""Sieć neuronowa agentów i wybór akcji.
 
-Na ten moment sieć jest liniowa: 5 wejść (obserwacje) → 8 wyjść (po jednym na akcję), bez warstwy ukrytej.
-Genom agenta = wektor wszystkich wag sieci razem z biasami, długość L = 48.
-
+Na ten moment sieć jest liniowa: 5 wejść (obserwacje) → 8 wyjść (po jednym na
+akcję), bez warstwy ukrytej. Genom agenta = wektor wszystkich wag sieci razem
+z biasami, długość L = 48.
 """
 import numpy as np
 from numpy.typing import NDArray
@@ -57,7 +57,9 @@ def wybierz_akcje(
         p /= np.sum(p, axis=1, keepdims=True)
         u = rng.random(y.shape[0])
         akcje = np.sum(np.cumsum(p, axis=1) < u[:, None], axis=1)
-        akcje = np.minimum(akcje, 7)
+        # Zabezpieczenie przed błędem zaokrąglenia: suma skumulowana może wyjść
+        # minimalnie poniżej 1, a wtedy indeks wypadłby poza ostatnią akcję.
+        akcje = np.minimum(akcje, y.shape[1] - 1)
     else:
         raise ValueError(f"Nieznany tryb {tryb!r}")
     return akcje.astype(np.int64)
