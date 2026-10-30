@@ -38,6 +38,12 @@ KRADNIJ = 6  # próba kradzieży od agenta przed sobą – akcja egoistyczna
 NIC = 7      # pozostanie w miejscu – świadoma akcja, w dylemacie obojętna
 LICZBA_AKCJI = 8
 
+# Wyniki wykonania akcji używane przez pętlę, pomiar i zapis danych.
+SUKCES = "sukces"
+PORAZKA = "porazka"
+NIEWYKONANA = "niewykonana"
+WYKONANA = "wykonana"
+
 
 # rozmiar sieci neuronowej: N_WE wejść, N_WY wyjść 
 N_WE = 5             # liczba wejść (kolumny macierzy obserwacji, bez biasu)
