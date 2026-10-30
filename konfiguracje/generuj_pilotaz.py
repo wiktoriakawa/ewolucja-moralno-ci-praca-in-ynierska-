@@ -29,13 +29,15 @@ ZIARNA_P1 = [101, 102, 103, 104, 105]
 ZIARNA_P2 = [201, 202, 203]
 ZIARNO_P3 = 301
 
-POKOLENIA_P2 = 50  
+POKOLENIA_P2 = 50
 POKOLENIA_P3 = 10
 
-# Poziomy α do P2 z próby przeżycia (E0 = T = 50): przy α ≤ 0,5 pokolenie zerowe
-# wymiera, przy 0,7 jeden z dwóch przebiegów wymarł w 9. pokoleniu;
-# 0,85 – trwały niedobór z selekcją (5 z 5 prób przeżyło); 1,0 – wąskie gardło
-# w pokoleniu zerowym, potem przeżywa prawie każdy; 3,0 – obfitość.
+# Poziomy α do P2 z próby przeżycia (E0 = T = 50; polecenia w proba_przezycia.py).
+# Siatka (ziarna 1–2, 5 pokoleń): przy α ≤ 0,5 pokolenie zerowe wymiera, a przy
+# α ≥ 1,0 po wąskim gardle w pokoleniu zerowym przeżywa prawie każdy.
+# Test odporności (ziarna 1–5, 100 pokoleń): przy α = 0,7 wymarły 4 z 5 przebiegów,
+# przy 0,85 przetrwało 5 z 5 (ziarno 1 ledwo: wariant awaryjny w 74 pokoleniach).
+# 0,85 – niedobór z selekcją; 1,0 – wartość pośrednia; 3,0 – obfitość.
 POZIOMY_ALFA = [("niedobor", 0.85), ("posrednia", 1.0), ("obfitosc", 3.0)]
 
 

@@ -1,9 +1,4 @@
 # Wygenerowano z bazowa.toml przez generuj_pilotaz.py – nie edytuj ręcznie.
-# Konfiguracja bazowa przebiegów pilotażowych Lab02 (zadanie 15).
-# Klucze: kontrakt v0.2, sekcja 6. Wartości startowe trafiają do tabeli
-# parametrów w Lab02.tex (punkt 3.4.6) i do dodatku A.
-# E0 i poziomy α dobrano próbą przeżycia z 29.10.2026 (ziarna 1–5, rozłączne
-# z ziarnami pilotażu); pozostałe wartości – z instrukcji, kontraktu i rejestru decyzji.
 # Pliki P1–P3 generuje z tego pliku generuj_pilotaz.py – wartości zmieniamy
 # tutaj, a nie w plikach wygenerowanych.
 # Komentarze piszemy NAD kluczem, nie w tej samej linii (generator podmienia
@@ -25,7 +20,7 @@ H = 64
 W = 64
 
 [populacja]
-# Wartość domyślna z kontraktu (NF-06).
+# Wartość domyślna z kontraktu
 N = 200
 
 [zasoby]
@@ -38,9 +33,9 @@ c_max = 5.0
 alfa = 0.85
 
 [obserwacje]
-# Domyślnie c_max (kontrakt, kwestia otwarta 2). Przy E0 / skala = 10 wejście
-# „własne zasoby” dominuje wyjścia sieci i softmax z τ = 1 jest prawie
-# deterministyczny (mediana p najlepszej akcji 0,98) – do kalibracji w Lab03.
+# Domyślnie c_max (kontrakt v0.3, ustalenie 2). Przy E0 / skala = 10 wejście
+# „własne zasoby” może dominować wyjścia sieci, przez co softmax z τ = 1 byłby
+# prawie deterministyczny – do sprawdzenia w P1 i kalibracji w Lab03.
 skala = 5.0
 
 [koszty]
@@ -57,22 +52,23 @@ p = 0.5
 x = 5.0
 
 [siec]
-# Softmax: strategie mieszane, M jako oszacowanie skłonności agenta (D3).
+# Softmax: strategie mieszane, M jako oszacowanie skłonności agenta
 tryb = "softmax"
 # Temperatura wyjściowa; pętla czyta ją zawsze. Patrz uwaga przy obserwacje.skala.
 tau = 1.0
 
 [ewolucja]
-# Rodzic = agent, który kończy pokolenie z co najmniej pulą startową (T = E0, D10).
+# Rodzic = agent, który kończy pokolenie z co najmniej pulą startową
 # Przy α ≥ 1 po adaptacji kwalifikuje się prawie każdy – T do kalibracji w Lab03.
 T = 50.0
-# 50 kroków życia bez jedzenia. W próbie przy E0 = 20–30 i α ≤ 1 było tylko 2–5
-# dylematów na agenta w pokoleniu zerowym (przy E0 = 50 ok. 8–16), a przy
-# E0 = 100 i α = 0,7 nikt nie osiągał T (w każdym pokoleniu wariant awaryjny).
+# 50 kroków życia bez jedzenia, wybrane próbą przeżycia (polecenia w
+# proba_przezycia.py): przy E0 = 100 i α = 0,7 nikt nie osiągał T (w każdym
+# pokoleniu wariant awaryjny), a mniejsza pula skraca życie agentów pokolenia
+# zerowego, czyli ich okazje do dylematów (do sprawdzenia w P1).
 E0 = 50.0
 # Wartość domyślna: 1/L, czyli średnio jedna zmutowana waga na potomka.
 r = "auto"
-# Środek przedziału 0,1–0,3 z instrukcji (krok 6).
+# Środek przedziału 0,1–0,3 z instrukcji (krok 6)
 sigma = 0.2
 # Wagi pokolenia zerowego są z N(0, 1), więc przy 4 przycięcie prawie ich nie rusza.
 w_max = 4.0
