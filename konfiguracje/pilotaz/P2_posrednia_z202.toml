@@ -1,0 +1,80 @@
+# Wygenerowano z bazowa.toml przez generuj_pilotaz.py – nie edytuj ręcznie.
+# Pliki P1–P3 generuje z tego pliku generuj_pilotaz.py – wartości zmieniamy
+# tutaj, a nie w plikach wygenerowanych.
+# Komentarze piszemy NAD kluczem, nie w tej samej linii (generator podmienia
+# całe linie z kluczami ziarno, pokolenia, alfa i katalog).
+# Jednostką zasobów jest metabolizm m = 1, więc E0, s, x i c_k to „kroki życia”.
+
+[przebieg]
+# Ziarno generatora (NF-03). W P1–P3 nadpisuje je generator.
+ziarno = 202
+# Liczba pokoleń. W P1–P3 nadpisuje ją generator.
+pokolenia = 50
+# Liczba kroków w pokoleniu – jak we wstępnym pomiarze (rejestr, załącznik A).
+kroki = 300
+
+[plansza]
+# 64 × 64 jak we wstępnym pomiarze. Przy N = 200 gęstość wynosi ok. 5% – mniej
+# więcej tyle wynosi szansa, że przed agentem stoi inny agent.
+H = 64
+W = 64
+
+[populacja]
+# Wartość domyślna z kontraktu
+N = 200
+
+[zasoby]
+# Pojemność pola losowana z [c_min, c_max]: każde pole wystarcza na 1–5 kroków życia.
+c_min = 1.0
+c_max = 5.0
+# Odrost na pole na krok. Przy 1.0 = m agent zbierający stale z jednego pola
+# wychodzi na zero. W próbie to poziom pośredni: wąskie gardło w pokoleniu
+# zerowym, potem przeżywa prawie cała populacja. W P2 nadpisuje go generator.
+alfa = 1.0
+
+[obserwacje]
+# Domyślnie c_max (kontrakt v0.3, ustalenie 2). Przy E0 / skala = 10 wejście
+# „własne zasoby” może dominować wyjścia sieci, przez co softmax z τ = 1 byłby
+# prawie deterministyczny – do sprawdzenia w P1 i kalibracji w Lab03.
+skala = 5.0
+
+[koszty]
+# Metabolizm – jednostka pozostałych wartości.
+m = 1.0
+# Wartość domyślna z kontraktu (koszt naliczany także przy nieudanej próbie).
+ruch = 0.0
+# Dar = 2 kroki życia biorcy. Małe s względem E0, bo dylemat wymaga zasobów ≥ s,
+# a główny problem danych to mała liczba dylematów.
+s = 2.0
+# Przykład z rejestru decyzji (D5): p·x − c_k = 0,5·5 − 1 = 1,5 > 0.
+c_k = 1.0
+p = 0.5
+x = 5.0
+
+[siec]
+# Softmax: strategie mieszane, M jako oszacowanie skłonności agenta
+tryb = "softmax"
+# Temperatura wyjściowa; pętla czyta ją zawsze. Patrz uwaga przy obserwacje.skala.
+tau = 1.0
+
+[ewolucja]
+# Rodzic = agent, który kończy pokolenie z co najmniej pulą startową
+# Przy α ≥ 1 po adaptacji kwalifikuje się prawie każdy – T do kalibracji w Lab03.
+T = 50.0
+# 50 kroków życia bez jedzenia, wybrane próbą przeżycia (polecenia w
+# proba_przezycia.py): przy E0 = 100 i α = 0,7 nikt nie osiągał T (w każdym
+# pokoleniu wariant awaryjny), a mniejsza pula skraca życie agentów pokolenia
+# zerowego, czyli ich okazje do dylematów (do sprawdzenia w P1).
+E0 = 50.0
+# Wartość domyślna: 1/L, czyli średnio jedna zmutowana waga na potomka.
+r = "auto"
+# Środek przedziału 0,1–0,3 z instrukcji (krok 6)
+sigma = 0.2
+# Wagi pokolenia zerowego są z N(0, 1), więc przy 4 przycięcie prawie ich nie rusza.
+w_max = 4.0
+# Mały promień: potomkowie rodzą się blisko rodzica, sąsiedzi są często spokrewnieni (D12).
+R = 2
+
+[zapis]
+# Katalog wyników. W P1–P3 nadpisuje go generator.
+katalog = "wyniki/P2_posrednia_z202"

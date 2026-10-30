@@ -33,3 +33,7 @@ dyskusja.md
 
 # Lokalna wersja kontraktu roboczego
 docs/kontrakt.md
+
+# Wyniki przebiegów i pliki robocze generatora konfiguracji
+wyniki/
+konfiguracje/pilotaz/*.tmp
