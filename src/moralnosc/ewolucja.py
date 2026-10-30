@@ -36,7 +36,7 @@ def pokolenie_zerowe(cfg: dict, rng: np.random.Generator) -> Stan:
     stan.zywy[:] = True
     stan.ids[:] = np.arange(N)
     stan.nastepny_id = N
-    
+
     return stan
 
 
@@ -60,7 +60,7 @@ def kwalifikacja(stan: Stan, T: float) -> tuple[NDArray[np.bool_], bool]:
     maska = stan.zywy & (stan.zasoby_agentow >= T)  # & działa element po elemencie, `and` – nie
     if maska.any():
         return maska, False
-    
+
     return stan.zywy.copy(), True
 
 
