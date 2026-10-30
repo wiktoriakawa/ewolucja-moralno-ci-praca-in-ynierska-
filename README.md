@@ -15,21 +15,22 @@ Projekt znajduje się na etapie tworzenia prototypu Lab02.
 Obecnie zaimplementowane są:
 
 - reprezentacja stanu symulacji;
-- tworzenie planszy i początkowych zasobów;
-- odrost i zbieranie zasobów;
-- losowe rozmieszczanie agentów;
-- ruch agentów i mapa zajętości;
-- obserwacje otoczenia;
-- minimalne testy powyższych elementów.
+- plansza, odrost i zbieranie zasobów;
+- rozmieszczanie, ruch i obserwacje agentów;
+- liniowa sieć neuronowa i wybór akcji (argmax albo softmax);
+- ewolucja: pokolenie zerowe, kwalifikacja, mutacja i nowe pokolenie;
+- wczytywanie konfiguracji z pliku TOML;
+- dzielenie się zasobami, kradzież i metabolizm;
+- pojedynczy krok symulacji;
+- kontener liczników pomiaru;
+- testy minimalne powyższych elementów.
 
 Planowane elementy prototypu:
 
-- sieć neuronowa i wybór akcji;
-- ewolucja i tworzenie kolejnych pokoleń;
-- konfiguracja przebiegów w formacie TOML;
-- dzielenie się zasobami i kradzież;
-- główna pętla symulacji;
-- pomiar zachowań oraz zapis wyników do plików CSV.
+- rejestrowanie dylematów i śmierci agentów w trakcie kroku;
+- przebieg wielu pokoleń z pliku konfiguracyjnego (`uruchom_przebieg`);
+- zapis wyników do plików CSV;
+- konfiguracje przebiegów pilotażowych.
 
 ## Wymagania
 
@@ -39,7 +40,7 @@ Planowane elementy prototypu:
 
 Projekt został lokalnie sprawdzony z użyciem:
 
-- Python 3.13.2;
+- Python 3.13.2 i 3.14.5;
 - NumPy 2.5.4;
 - pytest 9.1.1.
 
@@ -93,13 +94,17 @@ src/moralnosc/
 ├── __init__.py
 ├── stan.py          # struktura stanu symulacji i wspólne stałe
 ├── srodowisko.py    # plansza, zasoby pól, odrost i zbieranie
-└── populacja.py     # rozmieszczanie, ruch i obserwacje agentów
+├── populacja.py     # rozmieszczanie, ruch i obserwacje agentów
+├── siec.py          # sieć neuronowa i wybór akcji
+├── ewolucja.py      # pokolenie zerowe, kwalifikacja, mutacja, nowe pokolenie
+├── konfiguracja.py  # wczytywanie i minimalna walidacja pliku TOML
+├── interakcje.py    # dzielenie, kradzież i metabolizm
+├── petla.py         # wykonanie akcji i pojedynczy krok symulacji
+└── pomiar.py        # liczniki pomiaru jednego pokolenia
 
 tests/
-├── pomocnicze.py
-├── test_stan.py
-├── test_srodowisko.py
-└── test_populacja.py
+├── pomocnicze.py    # sprawdzanie niezmienników stanu
+└── test_<moduł>.py  # testy minimalne każdego modułu
 ```
 
 ## Konwencje
