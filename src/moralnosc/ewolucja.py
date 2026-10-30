@@ -185,7 +185,7 @@ def nowe_pokolenie(
 
     Zmienia: wszystkie pola agentów, zajetosc, nastepny_id, pokolenie.
     Nie zmienia: pojemnosc i zasoby_pol (plansza przechodzi do kolejnego
-    pokolenia – do decyzji, czy ją odnawiać) ani krok (zeruje go pętla).
+    pokolenia bez odnawiania) ani krok (zeruje go pętla).
     Losuje: rodzice → maska mutacji → szum → kolejność potomków → pola → kierunki.
     """
     N, L = stan.genomy.shape

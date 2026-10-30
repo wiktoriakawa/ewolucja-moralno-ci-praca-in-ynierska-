@@ -1,11 +1,17 @@
 """Mechaniczna obsługa pojedynczego kroku symulacji."""
 
-import numpy as np
+from collections.abc import Callable
 
+import numpy as np
+from numpy.typing import NDArray
+
+from moralnosc.ewolucja import kwalifikacja, nowe_pokolenie, pokolenie_zerowe
 from moralnosc.interakcje import nalicz_koszty, wykonaj_dzielenie, wykonaj_kradziez
 from moralnosc.pomiar import (
+    PRZYCZYNA_KONIEC_POKOLENIA,
     PRZYCZYNA_WYCZERPANIE,
     Pomiar,
+    pusty_pomiar,
     status_dylematu,
     zarejestruj,
     zarejestruj_smierc,
@@ -28,6 +34,11 @@ from moralnosc.stan import (
     ZBIERZ,
     Stan,
 )
+
+
+# Typ funkcji wywoływanej po zakończeniu każdego pokolenia. Konkretną
+# funkcję, np. zapisującą wyniki do CSV, przekazujemy jako `po_pokoleniu`.
+ObslugaPokolenia = Callable[[Stan, Pomiar, NDArray[np.bool_], bool], None]
 
 
 def _cel_nadal_przed(stan: Stan, i: int, cel: int) -> bool:
@@ -137,3 +148,63 @@ def krok(
     odrost(stan, cfg["zasoby"]["alfa"])
     stan.krok += 1
     return bool(stan.zywy.any())
+
+
+def wykonaj_pokolenie(
+    stan: Stan,
+    cfg: dict,
+    rng: np.random.Generator,
+) -> tuple[Pomiar, NDArray[np.bool_], bool, bool]:
+    """Wykonuje jedno pokolenie i przygotowuje dane do zapisu.
+
+    Zwraca pomiar, maskę zakwalifikowanych rodziców, informację o użyciu
+    wariantu awaryjnego oraz informację, czy ktoś dożył końca pokolenia.
+    Po wymarciu maska rodziców jest pusta, a wariant awaryjny ma wartość
+    ``False``.
+    """
+    stan.krok = 0
+    pomiar = pusty_pomiar(N=stan.zywy.size)
+
+    for _ in range(cfg["przebieg"]["kroki"]):
+        if not krok(stan, cfg, rng, pomiar=pomiar):
+            pusta_maska = np.zeros(stan.zywy.shape, dtype=np.bool_)
+            return pomiar, pusta_maska, False, False
+
+    maska, awaryjny = kwalifikacja(stan, cfg["ewolucja"]["T"])
+    zarejestruj_smierc(
+        pomiar,
+        stan.zywy,
+        krok=stan.krok,
+        przyczyna=PRZYCZYNA_KONIEC_POKOLENIA,
+    )
+    return pomiar, maska, awaryjny, True
+
+
+def uruchom_przebieg(
+    cfg: dict,
+    *,
+    po_pokoleniu: ObslugaPokolenia | None = None,
+) -> Stan:
+    """Uruchamia kolejne pokolenia jednego deterministycznego przebiegu.
+
+    Opcjonalna funkcja ``po_pokoleniu`` otrzymuje stan przed utworzeniem
+    potomków, pomiar, maskę rodziców i informację o wariancie awaryjnym.
+    Docelowo w tym miejscu zostanie podłączony zapis wyników do CSV.
+    Przebieg kończy się po zadanej liczbie pokoleń albo po wymarciu.
+    """
+    rng = np.random.default_rng(cfg["przebieg"]["ziarno"])
+    stan = pokolenie_zerowe(cfg, rng)
+    liczba_pokolen = cfg["przebieg"]["pokolenia"]
+
+    for numer_pokolenia in range(liczba_pokolen):
+        pomiar, maska, awaryjny, przetrwal = wykonaj_pokolenie(stan, cfg, rng)
+
+        if po_pokoleniu is not None:
+            po_pokoleniu(stan, pomiar, maska, awaryjny)
+
+        if not przetrwal or numer_pokolenia == liczba_pokolen - 1:
+            break
+
+        nowe_pokolenie(stan, maska, cfg, rng)
+
+    return stan
