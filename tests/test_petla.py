@@ -8,11 +8,15 @@ from moralnosc.stan import (
     DZIEL,
     KRADNIJ,
     NIC,
+    NIEWYKONANA,
     N_WE,
     N_WY,
     POLNOC,
+    PORAZKA,
     PUSTE,
+    SUKCES,
     WSCHOD,
+    WYKONANA,
     ZACHOD,
     ZBIERZ,
     pusty_stan,
@@ -97,7 +101,7 @@ def test_wykonaj_akcje_nalicza_koszt_nieudanej_proby_ruchu(stan, cfg):
         cfg=cfg,
         rng=np.random.default_rng(0),
     )
-    assert wynik == "porazka"
+    assert wynik == PORAZKA
     assert kwota == 0.0
     assert tuple(stan.pozycje[0]) == (0, 0)
     assert stan.kierunki[0] == POLNOC
@@ -117,7 +121,7 @@ def test_wykonaj_akcje_zbiera_zasoby_i_zwraca_kwote(stan, cfg):
         cfg=cfg,
         rng=np.random.default_rng(0),
     )
-    assert wynik == "wykonana"
+    assert wynik == WYKONANA
     assert kwota == pytest.approx(1.5)
     assert stan.zasoby_agentow[0] == pytest.approx(3.5)
     assert stan.zasoby_pol[0, 0] == 0.0
@@ -135,7 +139,7 @@ def test_wykonaj_akcje_dzieli_z_aktualnym_celem(stan, cfg):
         cfg=cfg,
         rng=np.random.default_rng(0),
     )
-    assert wynik == "sukces"
+    assert wynik == SUKCES
     assert kwota == pytest.approx(1.0)
     np.testing.assert_allclose(stan.zasoby_agentow, [1.0, 1.5])
     sprawdz_niezmienniki(stan)
@@ -170,7 +174,7 @@ def test_wykonaj_akcje_nie_przenosi_dzielenia_na_nowego_agenta(cfg):
         rng=np.random.default_rng(0),
     )
 
-    assert wynik == "niewykonana"
+    assert wynik == NIEWYKONANA
     assert kwota == 0.0
     np.testing.assert_allclose(stan.zasoby_agentow, [2.0, 0.5, 3.0])
     sprawdz_niezmienniki(stan)
@@ -194,9 +198,28 @@ def test_wykonaj_akcje_nie_nalicza_kosztu_kradziezy_gdy_cel_odszedl(
         rng=np.random.default_rng(0),
     )
 
-    assert wynik == "niewykonana"
+    assert wynik == NIEWYKONANA
     assert kwota == 0.0
     np.testing.assert_allclose(stan.zasoby_agentow, zasoby_przed)
+    sprawdz_niezmienniki(stan)
+
+
+def test_wykonaj_akcje_udana_kradziez_zwraca_kwote(stan, cfg):
+    """Udana kradzież pobiera koszt próby i przenosi kwotę x od celu."""
+    stan.zasoby_agentow[:] = [2.0, 3.0]
+
+    wynik, kwota = petla.wykonaj_akcje(
+        stan,
+        i=0,
+        cel=1,
+        akcja=KRADNIJ,
+        cfg=cfg,
+        rng=np.random.default_rng(0),
+    )
+
+    assert wynik == SUKCES
+    assert kwota == pytest.approx(1.5)
+    np.testing.assert_allclose(stan.zasoby_agentow, [3.0, 1.5])
     sprawdz_niezmienniki(stan)
 
 
@@ -213,7 +236,7 @@ def test_wykonaj_akcje_nic_zwraca_wykonana_bez_zmiany_zasobow(stan, cfg):
         rng=np.random.default_rng(0),
     )
 
-    assert wynik == "wykonana"
+    assert wynik == WYKONANA
     assert kwota == 0.0
     np.testing.assert_allclose(stan.zasoby_agentow, zasoby_przed)
     sprawdz_niezmienniki(stan)

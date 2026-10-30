@@ -11,9 +11,13 @@ from moralnosc.stan import (
     KIERUNKI,
     KRADNIJ,
     NIC,
+    NIEWYKONANA,
+    PORAZKA,
     PUSTE,
     RUCH_N,
     RUCH_W,
+    SUKCES,
+    WYKONANA,
     ZBIERZ,
     Stan,
 )
@@ -44,34 +48,34 @@ def wykonaj_akcje(
     if RUCH_N <= akcja <= RUCH_W:
         stan.zasoby_agentow[i] -= cfg["koszty"]["ruch"]
         wykonano = ruch(stan, i, akcja)
-        return ("sukces" if wykonano else "porazka"), 0.0
+        return (SUKCES if wykonano else PORAZKA), 0.0
 
     if akcja == ZBIERZ:
-        return "wykonana", zbierz(stan, i)
+        return WYKONANA, zbierz(stan, i)
 
     if akcja == DZIEL:
         if not _cel_nadal_przed(stan, i, cel):
-            return "niewykonana", 0.0
+            return NIEWYKONANA, 0.0
         wykonano = wykonaj_dzielenie(stan, i, cel, cfg["koszty"]["s"])
         kwota = cfg["koszty"]["s"] if wykonano else 0.0
-        return ("sukces" if wykonano else "niewykonana"), float(kwota)
+        return (SUKCES if wykonano else NIEWYKONANA), float(kwota)
 
     if akcja == KRADNIJ:
         if not _cel_nadal_przed(stan, i, cel):
-            return "niewykonana", 0.0
+            return NIEWYKONANA, 0.0
         sukces, kwota = wykonaj_kradziez(
             stan,
             i,
             cel,
-            cfg["koszty"]["c_k"],
-            cfg["koszty"]["p"],
-            cfg["koszty"]["x"],
-            rng,
+            c_k=cfg["koszty"]["c_k"],
+            p=cfg["koszty"]["p"],
+            x=cfg["koszty"]["x"],
+            rng=rng,
         )
-        return ("sukces" if sukces else "porazka"), kwota
+        return (SUKCES if sukces else PORAZKA), kwota
 
     if akcja == NIC:
-        return "wykonana", 0.0
+        return WYKONANA, 0.0
 
     raise ValueError(f"Nieznany kod akcji {akcja!r}")
 
