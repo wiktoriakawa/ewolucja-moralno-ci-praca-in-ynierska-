@@ -404,3 +404,50 @@ def test_uruchom_przebieg_wykonuje_pokolenia_i_callback(cfg_przebiegu):
         )
     assert stan.pokolenie == 2
     assert stan.krok == 2
+
+
+def test_uruchom_przebieg_jest_powtarzalny_dla_tego_samego_ziarna(
+    cfg_przebiegu,
+):
+    """To samo ziarno daje identyczne migawki wszystkich pokoleń."""
+
+    def uruchom_i_zapamietaj():
+        migawki = []
+
+        def zapamietaj(stan, pomiar, maska, awaryjny):
+            migawki.append(
+                {
+                    "pokolenie": stan.pokolenie,
+                    "krok": stan.krok,
+                    "pojemnosc": stan.pojemnosc.tolist(),
+                    "zasoby_pol": stan.zasoby_pol.tolist(),
+                    "zajetosc": stan.zajetosc.tolist(),
+                    "pozycje": stan.pozycje.tolist(),
+                    "kierunki": stan.kierunki.tolist(),
+                    "zasoby_agentow": stan.zasoby_agentow.tolist(),
+                    "zywy": stan.zywy.tolist(),
+                    "ids": stan.ids.tolist(),
+                    "rodzic": stan.rodzic.tolist(),
+                    "genomy": stan.genomy.tolist(),
+                    "S": pomiar.S.tolist(),
+                    "K": pomiar.K.tolist(),
+                    "N_o": pomiar.N_o.tolist(),
+                    "D": pomiar.D.tolist(),
+                    "krok_smierci": pomiar.krok_smierci.tolist(),
+                    "przyczyna_smierci": pomiar.przyczyna_smierci.tolist(),
+                    "akcje": pomiar.akcje_licznik.tolist(),
+                    "zdarzenia": [
+                        zdarzenie.copy() for zdarzenie in pomiar.zdarzenia
+                    ],
+                    "maska_rodzicow": maska.tolist(),
+                    "awaryjny": awaryjny,
+                }
+            )
+
+        petla.uruchom_przebieg(cfg_przebiegu, po_pokoleniu=zapamietaj)
+        return migawki
+
+    pierwsze_migawki = uruchom_i_zapamietaj()
+    drugie_migawki = uruchom_i_zapamietaj()
+
+    assert pierwsze_migawki == drugie_migawki
