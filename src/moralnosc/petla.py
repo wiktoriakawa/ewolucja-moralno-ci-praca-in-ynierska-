@@ -189,7 +189,7 @@ def uruchom_przebieg(
 
     Opcjonalna funkcja ``po_pokoleniu`` otrzymuje stan przed utworzeniem
     potomków, pomiar, maskę rodziców i informację o wariancie awaryjnym.
-    Docelowo w tym miejscu zostanie podłączony zapis wyników do CSV.
+    Callback może służyć do przyrostowego zapisu wyników po pokoleniu.
     Przebieg kończy się po zadanej liczbie pokoleń albo po wymarciu.
     """
     rng = np.random.default_rng(cfg["przebieg"]["ziarno"])

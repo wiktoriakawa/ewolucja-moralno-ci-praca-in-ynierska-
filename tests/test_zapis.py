@@ -3,6 +3,7 @@
 import csv
 from datetime import datetime
 import json
+import platform
 
 import numpy as np
 
@@ -71,6 +72,8 @@ def test_zapisz_konfiguracje_zapisuje_cfg_i_metadane(tmp_path, monkeypatch):
         dane = json.load(plik)
     assert dane["konfiguracja"] == cfg
     assert dane["metadane"]["commit"] == "abc123"
+    assert dane["metadane"]["python"] == platform.python_version()
+    assert dane["metadane"]["numpy"] == np.__version__
     datetime.fromisoformat(dane["metadane"]["data_uruchomienia"])
 
 
@@ -80,8 +83,7 @@ def test_callback_zapisuje_poprawne_dane_pokolenia(tmp_path):
     stan, pomiar = _stan_i_pomiar()
     callback = zapis.przygotuj_zapis(cfg)
 
-    # Maska obejmuje awaryjnie obu rodziców, ale próg T spełnia tylko agent 10.
-    callback(stan, pomiar, np.array([True, True]), True)
+    callback(stan, pomiar, np.array([True, False]), False)
 
     pokolenia = _wczytaj_csv(tmp_path / "pokolenia.csv")
     assert len(pokolenia) == 1
@@ -90,7 +92,7 @@ def test_callback_zapisuje_poprawne_dane_pokolenia(tmp_path):
         "zywi_koniec": "2",
         "przezywalnosc": "1.0",
         "zakwalifikowani": "1",
-        "awaryjny": "True",
+        "awaryjny": "False",
         "S": "1",
         "K": "1",
         "N_o": "5",
@@ -129,11 +131,18 @@ def test_callback_dopisuje_pokolenia_bez_powtarzania_naglowka(tmp_path):
     stan.ids[:] = [30, 40]
     stan.rodzic[:] = [10, 20]
     pomiar.zdarzenia[0]["pokolenie"] = 1
-    callback(stan, pomiar, np.array([True, False]), False)
+    callback(stan, pomiar, np.array([True, True]), True)
 
     pokolenia = _wczytaj_csv(tmp_path / "pokolenia.csv")
     agenci = _wczytaj_csv(tmp_path / "agenci.csv")
     dylematy = _wczytaj_csv(tmp_path / "dylematy.csv")
     assert [wiersz["pokolenie"] for wiersz in pokolenia] == ["0", "1"]
+    assert [wiersz["awaryjny"] for wiersz in pokolenia] == ["False", "True"]
     assert [wiersz["id"] for wiersz in agenci] == ["10", "20", "30", "40"]
+    assert [wiersz["kwalifikacja"] for wiersz in agenci] == [
+        "True",
+        "False",
+        "False",
+        "False",
+    ]
     assert [wiersz["pokolenie"] for wiersz in dylematy] == ["0", "1"]

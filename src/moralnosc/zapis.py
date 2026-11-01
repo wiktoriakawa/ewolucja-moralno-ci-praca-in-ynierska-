@@ -1,15 +1,16 @@
 """Strumieniowy zapis konfiguracji i wyników przebiegu."""
 
-from collections.abc import Callable
 import csv
 from datetime import datetime
 import json
 from pathlib import Path
+import platform
 import subprocess
 
 import numpy as np
 from numpy.typing import NDArray
 
+from moralnosc.petla import ObslugaPokolenia
 from moralnosc.pomiar import KOLUMNY_DYLEMATY, Pomiar
 from moralnosc.stan import LICZBA_AKCJI, Stan
 
@@ -41,11 +42,6 @@ KOLUMNY_AGENCI = (
     "przyczyna_smierci",
 )
 
-# Typ callbacku wywoływanego przez `uruchom_przebieg` po każdym pokoleniu.
-# To tylko opis interfejsu; konkretną funkcję tworzy `przygotuj_zapis` poniżej.
-ObslugaPokolenia = Callable[[Stan, Pomiar, NDArray[np.bool_], bool], None]
-
-
 def _commit_repozytorium() -> str:
     """Zwraca identyfikator wersji kodu, która wygenerowała wyniki.
 
@@ -56,7 +52,7 @@ def _commit_repozytorium() -> str:
     katalog_repo = Path(__file__).resolve().parents[2]
     try:
         wynik = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
+            ["git", "describe", "--always", "--dirty", "--abbrev=40"],
             cwd=katalog_repo,
             capture_output=True,
             text=True,
@@ -77,6 +73,8 @@ def zapisz_konfiguracje(cfg: dict, katalog: str | Path) -> Path:
         "metadane": {
             "data_uruchomienia": datetime.now().astimezone().isoformat(),
             "commit": _commit_repozytorium(),
+            "python": platform.python_version(),
+            "numpy": np.__version__,
         },
     }
     with sciezka.open("w", encoding="utf-8") as plik:
@@ -110,15 +108,14 @@ def zapisz_pokolenie(
     awaryjny: bool,
     *,
     katalog: str | Path,
-    prog_kwalifikacji: float,
 ) -> None:
     """Dopisuje zakończone pokolenie do trzech plików wynikowych CSV."""
     katalog = Path(katalog)
     liczba_agentow = stan.zywy.size
     zywi_koniec = int(stan.zywy.sum())
-    # Maska rodziców może awaryjnie obejmować wszystkich żywych. Kolumna
-    # `kwalifikacja` ma natomiast zawsze oznaczać faktyczne spełnienie progu T.
-    kwalifikacja = stan.zywy & (stan.zasoby_agentow >= prog_kwalifikacji)
+    # Bez wariantu awaryjnego maska rodziców jest maską kwalifikacji. Wariant
+    # awaryjny oznacza, że progu T nie osiągnął żaden agent.
+    kwalifikacja = np.zeros_like(maska_rodzicow) if awaryjny else maska_rodzicow
 
     wiersz_pokolenia: dict[str, object] = {
         "pokolenie": stan.pokolenie,
@@ -178,8 +175,8 @@ def przygotuj_zapis(cfg: dict) -> ObslugaPokolenia:
     _utworz_csv(katalog / "dylematy.csv", KOLUMNY_DYLEMATY)
 
     # Ta funkcja jest konkretnym callbackiem `po_pokoleniu`. Jako domknięcie
-    # pamięta `katalog` i próg T z `cfg`, więc pętla przekazuje jej tylko dane
-    # właśnie zakończonego pokolenia.
+    # pamięta `katalog`, więc pętla przekazuje jej tylko dane właśnie
+    # zakończonego pokolenia.
     def po_pokoleniu(
         stan: Stan,
         pomiar: Pomiar,
@@ -192,7 +189,6 @@ def przygotuj_zapis(cfg: dict) -> ObslugaPokolenia:
             maska_rodzicow,
             awaryjny,
             katalog=katalog,
-            prog_kwalifikacji=cfg["ewolucja"]["T"],
         )
 
     # Zwracamy funkcję bez jej wywoływania. Uruchomi ją `uruchom_przebieg`

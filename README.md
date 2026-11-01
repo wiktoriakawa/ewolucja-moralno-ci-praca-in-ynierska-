@@ -21,16 +21,18 @@ Obecnie zaimplementowane są:
 - ewolucja: pokolenie zerowe, kwalifikacja, mutacja i nowe pokolenie;
 - wczytywanie konfiguracji z pliku TOML;
 - dzielenie się zasobami, kradzież i metabolizm;
-- pojedynczy krok symulacji;
-- kontener liczników pomiaru;
+- pojedynczy krok i przebieg wielu pokoleń;
+- rejestrowanie dylematów, akcji i śmierci agentów;
+- zapis konfiguracji i metadanych do JSON;
+- przyrostowy zapis wyników do plików CSV;
+- konfiguracje przebiegów pilotażowych;
 - testy minimalne powyższych elementów.
 
 Planowane elementy prototypu:
 
-- rejestrowanie dylematów i śmierci agentów w trakcie kroku;
-- przebieg wielu pokoleń z pliku konfiguracyjnego (`uruchom_przebieg`);
-- zapis wyników do plików CSV;
-- konfiguracje przebiegów pilotażowych.
+- uruchamianie symulacji jednym poleceniem ze ścieżką do konfiguracji;
+- kontrola jakości i analiza wyników;
+- podstawowe wykresy przebiegów pilotażowych.
 
 ## Wymagania
 
@@ -99,8 +101,9 @@ src/moralnosc/
 ├── ewolucja.py      # pokolenie zerowe, kwalifikacja, mutacja, nowe pokolenie
 ├── konfiguracja.py  # wczytywanie i minimalna walidacja pliku TOML
 ├── interakcje.py    # dzielenie, kradzież i metabolizm
-├── petla.py         # wykonanie akcji i pojedynczy krok symulacji
-└── pomiar.py        # liczniki pomiaru jednego pokolenia
+├── petla.py         # akcje, kroki, pokolenia i pełny przebieg symulacji
+├── pomiar.py        # rejestrowanie pomiarów jednego pokolenia
+└── zapis.py         # konfiguracja JSON i przyrostowy zapis wyników CSV
 
 tests/
 ├── pomocnicze.py    # sprawdzanie niezmienników stanu
