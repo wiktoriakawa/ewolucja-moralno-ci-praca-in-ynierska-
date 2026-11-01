@@ -3,6 +3,13 @@
 import numpy as np
 
 from moralnosc.interakcje import nalicz_koszty, wykonaj_dzielenie, wykonaj_kradziez
+from moralnosc.pomiar import (
+    PRZYCZYNA_WYCZERPANIE,
+    Pomiar,
+    status_dylematu,
+    zarejestruj,
+    zarejestruj_smierc,
+)
 from moralnosc.populacja import obserwacje, ruch, usun_martwych
 from moralnosc.siec import wybierz_akcje, wyjscia
 from moralnosc.srodowisko import odrost, zbierz
@@ -80,18 +87,52 @@ def wykonaj_akcje(
     raise ValueError(f"Nieznany kod akcji {akcja!r}")
 
 
-def krok(stan: Stan, cfg: dict, rng: np.random.Generator) -> bool:
-    """Wykonuje jeden krok symulacji i zwraca, czy któryś agent przeżył."""
+def krok(
+    stan: Stan,
+    cfg: dict,
+    rng: np.random.Generator,
+    *,
+    pomiar: Pomiar | None = None,
+) -> bool:
+    """Wykonuje jeden krok symulacji i zwraca, czy któryś agent przeżył.
+
+    Gdy podano ``pomiar``, rejestruje intencje i wyniki akcji na podstawie
+    migawki z początku kroku oraz zgony spowodowane wyczerpaniem zasobów.
+    Brak pomiaru pozwala uruchamiać samą mechanikę, np. w próbie przeżycia.
+    """
     obs, przed = obserwacje(stan, cfg["obserwacje"]["skala"])
+    if pomiar is not None:
+        zasoby_start = stan.zasoby_agentow.copy()
+        dylemat = status_dylematu(stan, przed, zasoby_start, cfg["koszty"]["s"])
+
     y = wyjscia(obs, stan.genomy)
     akcje = wybierz_akcje(y, cfg["siec"]["tryb"], cfg["siec"]["tau"], rng)
 
     zywi = np.flatnonzero(stan.zywy)
     for i in rng.permutation(zywi):
-        wykonaj_akcje(stan, i, przed[i], akcje[i], cfg, rng)
+        wynik, kwota = wykonaj_akcje(stan, i, przed[i], akcje[i], cfg, rng)
+        if pomiar is not None:
+            zarejestruj(
+                pomiar,
+                stan,
+                zasoby_start,
+                i=int(i),
+                j=int(przed[i]),
+                akcja=int(akcje[i]),
+                dylemat_i=dylemat[i],
+                wynik=wynik,
+                kwota=kwota,
+            )
 
     nalicz_koszty(stan, cfg["koszty"]["m"])
     martwi = stan.zywy & (stan.zasoby_agentow <= 0)
+    if pomiar is not None:
+        zarejestruj_smierc(
+            pomiar,
+            martwi,
+            krok=stan.krok,
+            przyczyna=PRZYCZYNA_WYCZERPANIE,
+        )
     usun_martwych(stan, martwi)
     odrost(stan, cfg["zasoby"]["alfa"])
     stan.krok += 1

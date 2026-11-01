@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from moralnosc import petla
+from moralnosc.pomiar import PRZYCZYNA_WYCZERPANIE, PRZYCZYNA_ZYJE, pusty_pomiar
 from moralnosc.stan import (
     DZIEL,
     KRADNIJ,
@@ -266,3 +267,45 @@ def test_krok_zwraca_false_gdy_wszyscy_umieraja(stan, cfg):
     assert np.all(stan.zajetosc == PUSTE)
     assert stan.krok == 1
     sprawdz_niezmienniki(stan)
+
+
+def test_krok_rejestruje_akcje_i_dylematy_z_migawki(stan, cfg):
+    """Krok przekazuje do pomiaru akcje, wyniki i zasoby z początku kroku."""
+    stan.zasoby_agentow[:] = [3.0, 2.0]
+    ustaw_akcje(stan, [DZIEL, NIC])
+    pomiar = pusty_pomiar(N=2)
+
+    petla.krok(stan, cfg, np.random.default_rng(0), pomiar=pomiar)
+
+    assert pomiar.akcje_licznik.sum() == 2
+    assert pomiar.akcje_licznik[DZIEL] == 1
+    assert pomiar.akcje_licznik[NIC] == 1
+    np.testing.assert_array_equal(pomiar.S, [1, 0])
+    np.testing.assert_array_equal(pomiar.K, [0, 0])
+    np.testing.assert_array_equal(pomiar.N_o, [0, 1])
+    np.testing.assert_array_equal(pomiar.D, [1, 1])
+    np.testing.assert_array_equal(pomiar.S + pomiar.K + pomiar.N_o, pomiar.D)
+
+    zdarzenie_dzielenia = next(z for z in pomiar.zdarzenia if z["id"] == 10)
+    assert zdarzenie_dzielenia["id_celu"] == 20
+    assert zdarzenie_dzielenia["zasoby_agenta"] == pytest.approx(3.0)
+    assert zdarzenie_dzielenia["zasoby_celu"] == pytest.approx(2.0)
+    assert zdarzenie_dzielenia["akcja"] == DZIEL
+    assert zdarzenie_dzielenia["klasa"] == "dzielenie"
+    assert zdarzenie_dzielenia["wynik"] == SUKCES
+    assert zdarzenie_dzielenia["kwota"] == pytest.approx(1.0)
+
+
+def test_krok_rejestruje_smierc_przed_zwiekszeniem_numeru_kroku(stan, cfg):
+    """Agent umierający po metabolizmie otrzymuje numer bieżącego kroku."""
+    pomiar = pusty_pomiar(N=2)
+
+    petla.krok(stan, cfg, np.random.default_rng(0), pomiar=pomiar)
+
+    np.testing.assert_array_equal(pomiar.krok_smierci, [-1, 0])
+    np.testing.assert_array_equal(
+        pomiar.przyczyna_smierci,
+        [PRZYCZYNA_ZYJE, PRZYCZYNA_WYCZERPANIE],
+    )
+    assert stan.zywy.tolist() == [True, False]
+    assert stan.krok == 1
