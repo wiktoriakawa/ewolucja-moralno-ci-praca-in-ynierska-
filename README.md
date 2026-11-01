@@ -26,11 +26,11 @@ Obecnie zaimplementowane są:
 - zapis konfiguracji i metadanych do JSON;
 - przyrostowy zapis wyników do plików CSV;
 - konfiguracje przebiegów pilotażowych;
+- uruchamianie przebiegu jednym poleceniem ze ścieżką do konfiguracji;
 - testy minimalne powyższych elementów.
 
 Planowane elementy prototypu:
 
-- uruchamianie symulacji jednym poleceniem ze ścieżką do konfiguracji;
 - kontrola jakości i analiza wyników;
 - podstawowe wykresy przebiegów pilotażowych.
 
@@ -71,6 +71,27 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
+## Uruchamianie przebiegu
+
+Program przyjmuje ścieżkę do pliku konfiguracyjnego TOML. Katalog wyników
+jest określony przez klucz `zapis.katalog` w tej konfiguracji.
+
+Windows PowerShell:
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m moralnosc przebieg konfiguracje/pilotaz/P1_z101.toml
+```
+
+Linux:
+
+```bash
+PYTHONPATH=src python -m moralnosc przebieg konfiguracje/pilotaz/P1_z101.toml
+```
+
+Po zakończeniu powstają plik `konfiguracja.json` oraz pliki
+`pokolenia.csv`, `agenci.csv` i `dylematy.csv`.
+
 ## Uruchamianie testów
 
 Projekt korzysta z układu katalogów `src`, dlatego przed uruchomieniem testów
@@ -94,6 +115,7 @@ PYTHONPATH=src python -m pytest -q
 ```text
 src/moralnosc/
 ├── __init__.py
+├── __main__.py      # interfejs uruchamiania przebiegu z pliku TOML
 ├── stan.py          # struktura stanu symulacji i wspólne stałe
 ├── srodowisko.py    # plansza, zasoby pól, odrost i zbieranie
 ├── populacja.py     # rozmieszczanie, ruch i obserwacje agentów
