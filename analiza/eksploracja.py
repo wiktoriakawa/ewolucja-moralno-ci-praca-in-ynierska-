@@ -1,18 +1,26 @@
 """Eksploracja danych z pilotażu Lab02 (zadanie 18; Lab02, punkty 4.3.1 i 4.4).
 
 Skrypt wczytuje przebiegi pilotażowe, liczy współczynniki z punktu 3.4.3
-(profil, M, M_wyg, M_pop), wypisuje liczby do tabel i zapisuje wykresy.
-Symulacji nie uruchamia – pracuje wyłącznie na zapisanych plikach CSV.
+(profil, M, M_wyg, M_pop), wypisuje liczby, zapisuje wykresy i gotowe tabele
+LaTeX-a. Symulacji nie uruchamia – pracuje na zapisanych plikach CSV. Jedynie
+w punkcie 4.4.3 odtwarza z zapisanej konfiguracji stan na początku pokolenia
+zerowego, żeby policzyć prawdopodobieństwa akcji w kroku 0 (bez losowania akcji).
 
 Uruchomienie z katalogu kod/:
     PYTHONPATH=src python analiza/eksploracja.py ../asystent/Lab02/wyniki
 
 Co powstaje w katalogu --wyjscie (domyślnie wyniki/analiza, poza Gitem):
-    4.3.1  D_podsumowanie.csv, M_rozrzut_wg_D.csv, histogram_D.pdf, M_od_D.pdf
-    4.4.2  statystyki_P1.csv, statystyki_P2_alfa_*.csv
+    4.3.1  D_podsumowanie.csv, M_rozrzut_wg_D.csv, histogram_D.pdf, M_od_D.pdf,
+           tabele/tab_dylematy.tex, tabele/tab_rozrzut.tex
+    4.4.2  statystyki_P1.csv, statystyki_P2_alfa_*.csv,
+           statystyki_P2_pierwsze_ostatnie.csv,
+           tabele/tab_statystyki_P1.tex, tabele/tab_statystyki_P2.tex
     4.4.3  udzialy_akcji_P1.csv, pokolenie_zerowe.pdf
-    4.4.4  przebieg_w_pokoleniach.csv, przezywalnosc.pdf, M_pop.pdf
-Te same liczby skrypt wypisuje na ekran.
+    4.4.4  przebieg_w_pokoleniach.csv, przebieg_wybrane_pokolenia.csv,
+           akcje_w_pokoleniach.csv, przezywalnosc.pdf, M_pop.pdf,
+           akcje_w_pokoleniach.pdf
+Te same liczby skrypt wypisuje na ekran. Tabele z katalogu tabele/ wstawia się
+do dokumentu poleceniem \\input{tabele/<nazwa>} – liczb nie przepisuje się ręcznie.
 
 Seria P3 służy tylko do sprawdzenia powtarzalności (NF-03): P3_a i P3_b to ten
 sam przebieg, więc w eksploracji jej nie liczymy – inaczej te same dane
@@ -30,6 +38,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from moralnosc.ewolucja import pokolenie_zerowe
+from moralnosc.populacja import obserwacje
+from moralnosc.siec import wyjscia
 from moralnosc.stan import DZIEL, KRADNIJ, LICZBA_AKCJI, NIC, ZBIERZ
 
 # Kody przyczyn śmierci z pomiar.py (kolumna przyczyna_smierci w agenci.csv).
@@ -49,10 +60,35 @@ NAZWY_AKCJI = {
 }
 KOLUMNY_AKCJI = [f"akcja_{kod}" for kod in range(LICZBA_AKCJI)]
 
+# Grupy akcji na wykresie akcji w kolejnych pokoleniach: cztery kierunki ruchu
+# łączymy w jedną grupę, bo osobno niczego nie wnoszą.
+GRUPY_AKCJI = {
+    "ruch": [0, 1, 2, 3],
+    "zbierz": [ZBIERZ],
+    "dziel": [DZIEL],
+    "kradnij": [KRADNIJ],
+    "nic": [NIC],
+}
+
 # Dolne granice przedziałów liczby dylematów D w tabelach i na histogramie.
 # Rozkład D jest bardzo skośny (mediana w P1 to 2, maksimum 300), więc
 # przedziały rosną mniej więcej geometrycznie; górną granicę dobiera się z danych.
 GRANICE_D = (0, 1, 2, 3, 5, 10, 20, 50, 100, 200)
+
+# Nazwy wierszy tabeli statystyk (statystyki_opisowe) w zapisie LaTeX-a.
+ETYKIETY_TEX = {
+    "D (agenci)": "$D$ (agenci)",
+    "S (agenci)": "$S$ (agenci)",
+    "K (agenci)": "$K$ (agenci)",
+    "N_o (agenci)": "$N_o$ (agenci)",
+    "M (agenci z D > 0)": "$M$ (agenci z $D > 0$)",
+    "M_wyg (agenci)": "$M_{\\mathrm{wyg}}$ (agenci)",
+    "zasoby na koniec (agenci)": "Zasoby na koniec (agenci)",
+    "krok śmierci (zmarli agenci)": "Krok śmierci (zmarli agenci)",
+    "przeżywalność (pokolenia)": "Przeżywalność (pokolenia)",
+    "zakwalifikowani (pokolenia)": "Zakwalifikowani (pokolenia)",
+    "M_pop (pokolenia z ΣD > 0)": "$M_{\\mathrm{pop}}$ (pokolenia z $\\sum D > 0$)",
+}
 
 
 # --- 1. Wczytywanie -------------------------------------------------------------------
@@ -176,7 +212,7 @@ def dodaj_wspolczynniki(agenci: pd.DataFrame, a: float) -> pd.DataFrame:
     """Zwraca kopię tabeli agentów z dopisanymi współczynnikami z punktu 3.4.3.
 
     Nowe kolumny:
-        s, k, n             – profil (S/D, K/D, N_o/D);
+        s, k, n             – profil (S/D, K/D, N_o/D); w dokumencie (P_S, P_K, P_O);
         M                   – (S − K) / D;
         M_wyg               – (S − K) / (D + a);
         s_wyg, k_wyg, n_wyg – ((S+1)/(D+3), (K+1)/(D+3), (N_o+1)/(D+3)).
@@ -270,11 +306,15 @@ def podsumuj_D(agenci: pd.DataFrame, D_min: int) -> pd.DataFrame:
     return pd.DataFrame.from_dict(wiersze, orient="index")
 
 
-def rozrzut_M_wg_D(agenci: pd.DataFrame, D_min: int) -> pd.DataFrame:
+def rozrzut_M_wg_D(
+    agenci: pd.DataFrame, D_min: int, granice: list[int] | None = None
+) -> pd.DataFrame:
     """Rozrzut współczynnika M w przedziałach D w porównaniu z samym przypadkiem.
 
     Podstawa wyboru D_min i a w punkcie 4.3.1. Wymaga tabeli po
     dodaj_wspolczynniki; agenci z D = 0 nie mają M, więc są pomijani.
+    Argument granice pozwala użyć tych samych przedziałów dla kilku grup
+    (w main – wspólnych dla P1 i P2); domyślnie wyznacza się je z danych.
 
     Każdą decyzję w dylemacie traktujemy jak liczbę x: +1 (dzielenie),
     −1 (kradzież), 0 (akcja obojętna); M agenta to średnia z jego D decyzji.
@@ -300,7 +340,8 @@ def rozrzut_M_wg_D(agenci: pd.DataFrame, D_min: int) -> pd.DataFrame:
     p_k = z_dylematami["K"].sum() / z_dylematami["D"].sum()
     wariancja_decyzji = (p_s + p_k) - (p_s - p_k) ** 2
 
-    granice = _przedzialy_D(z_dylematami["D"], D_min, od=1)
+    if granice is None:
+        granice = _przedzialy_D(z_dylematami["D"], D_min, od=1)
     przedzial = pd.cut(
         z_dylematami["D"], granice, right=False, labels=_etykiety_przedzialow(granice)
     )
@@ -321,6 +362,22 @@ def rozrzut_M_wg_D(agenci: pd.DataFrame, D_min: int) -> pd.DataFrame:
     return tabela
 
 
+def _z_przecinkiem(wartosc: float, _pozycja: int) -> str:
+    """Etykieta osi z przecinkiem dziesiętnym i znakiem minus (−), jak w tekście pracy."""
+    return f"{wartosc:g}".replace(".", ",").replace("-", "−")
+
+
+def _przecinki(os_: plt.Axes, *, x: bool = False) -> None:
+    """Przecinek dziesiętny w liczbach na osi y (i, gdy x=True, na osi x).
+
+    Matplotlib domyślnie pisze 0.25; w polskim tekście pracy jest 0,25.
+    Funkcję podaje się bezpośrednio – Matplotlib sam opakowuje ją w FuncFormatter.
+    """
+    os_.yaxis.set_major_formatter(_z_przecinkiem)
+    if x:
+        os_.xaxis.set_major_formatter(_z_przecinkiem)
+
+
 def _zapisz_wykres(fig: plt.Figure, plik: Path) -> None:
     """Zapisuje wykres i zamyka go (zamknięcie zwalnia pamięć).
 
@@ -338,7 +395,7 @@ def wykres_histogram_D(grupy: dict[str, pd.Series], D_min: int, plik: Path) -> N
     Argumenty:
         grupy: etykieta grupy → kolumna D tej grupy, np.
                {"P1, pokolenie 0": …, "P2, α = 1,0, pokolenie 49": …}.
-        D_min: przedziały poniżej progu są szare.
+        D_min: przedziały poniżej progu są szare (wyjaśnić w podpisie rysunku).
         plik:  ścieżka wyjściowa (PDF – wektorowy, dobry do LaTeX-a).
 
     Rozkład jest bardzo skośny, dlatego zamiast zwykłego histogramu słupki
@@ -364,13 +421,13 @@ def wykres_histogram_D(grupy: dict[str, pd.Series], D_min: int, plik: Path) -> N
         os_.bar(range(len(etykiety)), udzialy.to_numpy(), color=kolory)
         os_.set_xticks(range(len(etykiety)), etykiety, rotation=90, fontsize=8)
         os_.set_title(f"{tytul} (n = {len(D)})", fontsize=9)
+        _przecinki(os_)
     for os_ in osie[-1]:
         os_.set_xlabel("Liczba dylematów D")
     for os_ in osie[:, 0]:
         os_.set_ylabel("Udział agentów")
     for os_ in list(osie.flat)[len(grupy):]:
         os_.set_visible(False)  # pusty panel przy nieparzystej liczbie grup
-    fig.suptitle(f"Szare słupki: D < D_min = {D_min}", fontsize=8, y=1.0)
     fig.tight_layout()
     _zapisz_wykres(fig, plik)
 
@@ -409,6 +466,7 @@ def wykres_M_od_D(agenci: pd.DataFrame, D_min: int, plik: Path) -> None:
         os_.set_xscale("log")
         os_.set_xlabel("Liczba dylematów D (skala log.)")
         os_.set_title(tytul)
+        _przecinki(os_, x=True)  # na osi log. daje 1, 10, 100 zamiast 10⁰, 10¹, 10²
     osie[0].set_ylabel("Wartość współczynnika")
     legenda = osie[0].legend(loc="lower right", fontsize=8, markerscale=3)
     for uchwyt in legenda.legend_handles:
@@ -470,6 +528,29 @@ def statystyki_opisowe(agenci: pd.DataFrame, pokolenia: pd.DataFrame) -> pd.Data
     )
 
 
+def statystyki_pierwsze_ostatnie(agenci: pd.DataFrame, pokolenia: pd.DataFrame) -> pd.DataFrame:
+    """Średnie ze statystyki_opisowe w pierwszym i ostatnim pokoleniu każdego α (P2).
+
+    Argumenty jak w statystyki_opisowe, ale dla całej serii P2. Zwraca tabelę
+    z wierszami jak w statystyki_opisowe i kolumnami (alfa, pokolenie): dla
+    każdego α najpierw pokolenie 0, potem ostatnie, czyli największy numer
+    pokolenia, do którego doszło którekolwiek ziarno. Zmienne agentów to
+    średnia po wszystkich agentach tego pokolenia (ziarna łącznie), a zmienne
+    pokoleń – średnia po ziarnach.
+
+    Porównanie pierwszego i ostatniego pokolenia pokazuje, dokąd doprowadziła
+    ewolucja. Statystyki ze wszystkich pokoleń łącznie mieszałyby wąskie gardło
+    pokolenia zerowego z populacją już przystosowaną.
+    """
+    kolumny = {}
+    for alfa, grupa in agenci.groupby("alfa"):
+        for numer in (grupa["pokolenie"].min(), grupa["pokolenie"].max()):
+            w_pokoleniu = grupa[grupa["pokolenie"] == numer]
+            pokolenia_alfa = pokolenia[(pokolenia["alfa"] == alfa) & (pokolenia["pokolenie"] == numer)]
+            kolumny[(alfa, int(numer))] = statystyki_opisowe(w_pokoleniu, pokolenia_alfa)["srednia"]
+    return pd.DataFrame(kolumny)
+
+
 # --- 5. Pokolenie zerowe (punkt 4.4.3) ------------------------------------------------
 
 
@@ -479,11 +560,50 @@ def udzialy_akcji(pokolenia: pd.DataFrame) -> pd.Series:
     Liczone z kolumn akcja_0 … akcja_7 pliku pokolenia.csv (zliczenia wszystkich
     decyzji, także poza dylematami), zsumowanych po przekazanych wierszach.
     Zwraca Series z indeksem z NAZWY_AKCJI i wartościami sumującymi się do 1.
+
+    Uwaga przy interpretacji: agent podejmuje decyzję w każdym kroku, w którym
+    żyje, więc udział jest ważony długością życia – akcje agentów, którzy żyją
+    długo, liczą się wielokrotnie (porównaj z udzialy_akcji_krok0).
     """
     sumy = pokolenia[KOLUMNY_AKCJI].sum()
     udzialy = sumy / sumy.sum()
     udzialy.index = [NAZWY_AKCJI[kod] for kod in range(LICZBA_AKCJI)]
     udzialy.name = "udzial"  # nagłówek kolumny w CSV
+    return udzialy
+
+
+def udzialy_akcji_krok0(katalog_wynikow: Path, przebiegi: list[str]) -> pd.Series:
+    """Oczekiwany udział akcji w pierwszym kroku pokolenia zerowego (krok 0).
+
+    Dla każdego przebiegu odtwarza z zapisanej konfiguracji stan na początku
+    pokolenia zerowego – ten sam generator z tego samego ziarna i ta sama
+    funkcja pokolenie_zerowe co w symulacji, więc genomy, pozycje i zasoby są
+    identyczne. Potem liczy obserwacje i wyjścia sieci wszystkich agentów
+    i zamienia je na prawdopodobieństwa akcji tak jak siec.wybierz_akcje:
+    softmax z temperaturą τ albo, w trybie argmax, 1 dla najlepszej akcji.
+    Akcji nie losuje – zwraca średnie prawdopodobieństwo, czyli udział, jakiego
+    należy się spodziewać w kroku 0, gdy żyją jeszcze wszyscy agenci.
+
+    Porównanie z udzialy_akcji (całe pokolenie) pokazuje, ile z przewagi
+    jednej akcji wynika z preferencji losowych sieci, a ile z tego, że agenci
+    wybierający tę akcję żyją dłużej.
+    """
+    sumy = np.zeros(LICZBA_AKCJI)
+    for nazwa in przebiegi:
+        cfg = _wczytaj_konfiguracje(katalog_wynikow / nazwa)
+        stan = pokolenie_zerowe(cfg, np.random.default_rng(cfg["przebieg"]["ziarno"]))
+        obs, _ = obserwacje(stan, cfg["obserwacje"]["skala"])
+        y = wyjscia(obs, stan.genomy)
+        if cfg["siec"]["tryb"] == "softmax":
+            # odjęcie maksimum w wierszu nie zmienia wyniku, a chroni przed przepełnieniem exp
+            z = (y - y.max(axis=1, keepdims=True)) / cfg["siec"]["tau"]
+            prawdopodobienstwa = np.exp(z)
+            prawdopodobienstwa /= prawdopodobienstwa.sum(axis=1, keepdims=True)
+        else:
+            prawdopodobienstwa = np.eye(LICZBA_AKCJI)[y.argmax(axis=1)]
+        sumy += prawdopodobienstwa.sum(axis=0)
+    udzialy = pd.Series(sumy / sumy.sum(), index=[NAZWY_AKCJI[k] for k in range(LICZBA_AKCJI)])
+    udzialy.name = "udzial_krok0"
     return udzialy
 
 
@@ -514,27 +634,41 @@ def najczestsza_akcja_w_dylematach(
 
 
 def wykres_pokolenie_zerowe(
-    udzialy: pd.Series, agenci_P1: pd.DataFrame, plik: Path
+    udzialy: pd.Series,
+    agenci_P1: pd.DataFrame,
+    plik: Path,
+    udzialy_krok0: pd.Series | None = None,
 ) -> None:
     """Rozkład akcji i współczynnika M w pokoleniu zerowym (atrapa w 4.4.3).
 
-    Dwa panele: lewy – udziały ośmiu akcji we wszystkich decyzjach, prawy –
-    histogram M agentów P1 z D > 0 (21 przedziałów na [−1, 1], więc M = 0
-    ma własny przedział pośrodku). Wymaga agenci_P1 po dodaj_wspolczynniki.
+    Dwa panele. Lewy – udziały ośmiu akcji: w całym pokoleniu (niebieskie)
+    i, gdy podano udzialy_krok0, oczekiwane w kroku 0 (szare). Różnica między
+    słupkami to wpływ przeżywalności: akcje agentów, którzy żyją dłużej, liczą
+    się częściej. Prawy – histogram M agentów P1 z D > 0 (21 przedziałów na
+    [−1, 1], więc M = 0 ma własny przedział pośrodku). Wymaga agenci_P1 po
+    dodaj_wspolczynniki.
     """
     M = agenci_P1["M"].dropna()
     fig, (lewy, prawy) = plt.subplots(
-        1, 2, figsize=(6.3, 2.6), gridspec_kw={"width_ratios": [1.3, 1]}
+        1, 2, figsize=(6.3, 2.8), gridspec_kw={"width_ratios": [1.4, 1]}
     )
-    lewy.bar(udzialy.index, udzialy.to_numpy(), color="C0")
-    lewy.tick_params(axis="x", rotation=90)
+    x = np.arange(len(udzialy))
+    if udzialy_krok0 is None:
+        lewy.bar(x, udzialy.to_numpy(), color="C0")
+    else:
+        lewy.bar(x - 0.2, udzialy_krok0.to_numpy(), width=0.4, color="0.65", label="krok 0 (oczekiwane)")
+        lewy.bar(x + 0.2, udzialy.to_numpy(), width=0.4, color="C0", label="całe pokolenie")
+        lewy.legend(fontsize=7, loc="upper left")
+    lewy.set_xticks(x, udzialy.index, rotation=90)
     lewy.set_ylabel("Udział decyzji")
-    lewy.set_title("Wybrane akcje (wszystkie decyzje)", fontsize=9)
+    lewy.set_title("Wybrane akcje", fontsize=9)
+    _przecinki(lewy)
 
     prawy.hist(M, bins=21, range=(-1, 1), color="C0", edgecolor="white")
     prawy.set_xlabel(r"$M$")
     prawy.set_ylabel("Liczba agentów")
     prawy.set_title(f"$M$ agentów z D > 0 (n = {len(M)})", fontsize=9)
+    _przecinki(prawy, x=True)
     fig.tight_layout()
     _zapisz_wykres(fig, plik)
 
@@ -548,6 +682,12 @@ def _etykieta_alfa(alfa: float) -> str:
     if tekst.endswith("0"):
         tekst = tekst[:-1]  # 1.00 → 1.0, ale 0.85 zostaje
     return "α = " + tekst.replace(".", ",")
+
+
+def _etykieta_alfa_tex(alfa: float) -> str:
+    """To samo co _etykieta_alfa, ale w zapisie LaTeX-a: $\\alpha = 0{,}85$."""
+    liczba = _etykieta_alfa(alfa).removeprefix("α = ").replace(",", "{,}")
+    return f"$\\alpha = {liczba}$"
 
 
 def przebieg_w_pokoleniach(pokolenia: pd.DataFrame) -> pd.DataFrame:
@@ -572,6 +712,24 @@ def przebieg_w_pokoleniach(pokolenia: pd.DataFrame) -> pd.DataFrame:
         M_pop_sr=("M_pop", "mean"),
         awaryjny_liczba=("awaryjny", "sum"),
     )
+
+
+def udzialy_akcji_w_pokoleniach(pokolenia: pd.DataFrame) -> pd.DataFrame:
+    """Udział grup akcji (GRUPY_AKCJI) we wszystkich decyzjach w kolejnych pokoleniach.
+
+    Argument: pokolenia serii P2. Zliczenia akcja_0 … akcja_7 sumujemy po
+    ziarnach jednego α i jednego pokolenia, a dopiero potem dzielimy przez
+    sumę – tak jak w udzialy_akcji. Zwraca tabelę z kolumnami alfa, pokolenie
+    i po jednej kolumnie na grupę akcji; w każdym wierszu udziały sumują się do 1.
+    """
+    sumy = pokolenia.groupby(["alfa", "pokolenie"])[KOLUMNY_AKCJI].sum()
+    grupy = pd.DataFrame(
+        {
+            nazwa: sumy[[KOLUMNY_AKCJI[kod] for kod in kody]].sum(axis=1)
+            for nazwa, kody in GRUPY_AKCJI.items()
+        }
+    )
+    return grupy.div(grupy.sum(axis=1), axis=0).reset_index()
 
 
 def _linie_ziaren_i_srednia(
@@ -634,23 +792,31 @@ def wykres_przezywalnosc(pokolenia: pd.DataFrame, plik: Path) -> None:
     dol.set_ylabel("Zakwalifikowani")
     dol.set_xlabel("Pokolenie")
     gora.legend(fontsize=8, loc="lower right")
+    _przecinki(gora)
     fig.tight_layout()
     _zapisz_wykres(fig, plik)
 
 
 def wykres_m_pop(
-    pokolenia: pd.DataFrame, plik: Path, poziom_odniesienia: float | None = None
+    pokolenia: pd.DataFrame,
+    plik: Path,
+    poziom_odniesienia: float | None = None,
+    zakres_odniesienia: tuple[float, float] | None = None,
 ) -> None:
     """M_pop w kolejnych pokoleniach dla trzech α (atrapa w 4.4.4).
 
-    Układ linii jak w wykres_przezywalnosc. Pozioma przerywana linia to
-    poziom odniesienia z pokolenia zerowego (punkt 4.4.3): zmianę M_pop można
-    przypisać ewolucji tylko wtedy, gdy wyraźnie od niego odbiega. W main jest
-    to M_pop całej serii P1 – ta sama miara co na osi y, więc porównanie jest
-    uczciwe (średnia z M agentów ważyłaby agentów z 1 dylematem tak samo jak
-    tych z 300).
+    Układ linii jak w wykres_przezywalnosc. Punkt odniesienia z pokolenia
+    zerowego (punkt 4.4.3): pozioma przerywana linia to M_pop całej serii P1
+    (poziom_odniesienia), a szary pas – zakres M_pop między ziarnami P1
+    (zakres_odniesienia), czyli jak bardzo M_pop waha się bez ewolucji, z samego
+    przypadku. Zmianę M_pop można przypisać ewolucji tylko wtedy, gdy wyraźnie
+    wychodzi poza ten pas. M_pop serii P1 to ta sama miara co na osi y, więc
+    porównanie jest uczciwe (średnia z M agentów ważyłaby agentów z 1 dylematem
+    tak samo jak tych z 300).
     """
     fig, os_ = plt.subplots(figsize=(6.3, 2.8))
+    if zakres_odniesienia is not None:
+        os_.axhspan(*zakres_odniesienia, color="0.88", zorder=0, label="P1: zakres między ziarnami")
     _linie_ziaren_i_srednia(os_, pokolenia, "M_pop", "M_pop_sr")
     if poziom_odniesienia is not None:
         os_.axhline(
@@ -663,11 +829,120 @@ def wykres_m_pop(
     os_.set_xlabel("Pokolenie")
     os_.set_ylabel(r"$M_{\mathrm{pop}}$")
     os_.legend(fontsize=8)
+    _przecinki(os_)
     fig.tight_layout()
     _zapisz_wykres(fig, plik)
 
 
-# --- 7. Całość ------------------------------------------------------------------------
+def wykres_akcje_w_pokoleniach(pokolenia: pd.DataFrame, plik: Path) -> None:
+    """Udział grup akcji w kolejnych pokoleniach, osobny panel dla każdego α (4.4.4).
+
+    Argument: pokolenia serii P2. Pokazuje, jak ewolucja zmienia sposób
+    działania agentów (np. przewaga zbierania), co pomaga zrozumieć wykres M_pop:
+    jeśli prawie wszystkie decyzje to zbieranie, to M_pop bliskie 0 oznacza
+    brak interakcji, a nie równowagę dzielenia i kradzieży.
+    """
+    tabela = udzialy_akcji_w_pokoleniach(pokolenia)
+    wartosci_alfa = sorted(tabela["alfa"].unique())
+    fig, osie = plt.subplots(
+        1, len(wartosci_alfa), figsize=(6.3, 2.5), sharey=True, squeeze=False
+    )
+    for os_, alfa in zip(osie[0], wartosci_alfa):
+        dane = tabela[tabela["alfa"] == alfa]
+        for nazwa in GRUPY_AKCJI:
+            os_.plot(dane["pokolenie"], dane[nazwa], linewidth=1.2, label=nazwa)
+        os_.set_title(_etykieta_alfa(alfa), fontsize=9)
+        os_.set_xlabel("Pokolenie")
+        os_.set_ylim(0, 1)
+        _przecinki(os_)
+    osie[0][0].set_ylabel("Udział decyzji")
+    osie[0][-1].legend(fontsize=7, loc="center right")
+    fig.tight_layout()
+    _zapisz_wykres(fig, plik)
+
+
+# --- 7. Tabele do LaTeX-a ---------------------------------------------------------------
+
+
+def liczba_tex(wartosc: float, miejsca: int = 2) -> str:
+    """Liczba do tabeli LaTeX-a: przecinek dziesiętny, minus w trybie matematycznym.
+
+    Wartości całkowite (po zaokrągleniu) bez części ułamkowej, brak danych (NaN)
+    jako „--”. Zaokrąglone zero zapisujemy jako 0, a nie −0.
+    """
+    if pd.isna(wartosc):
+        return "--"
+    v = round(float(wartosc), miejsca)
+    if v == 0:
+        v = 0.0  # round(-0.001, 2) daje -0.0
+    tekst = str(int(v)) if v.is_integer() else f"{v:.{miejsca}f}"
+    return tekst.replace("-", "$-$").replace(".", "{,}")
+
+
+def procent_tex(udzial: float) -> str:
+    """Udział (0–1) jako procent z jednym miejscem po przecinku: 0.314 → 31{,}4\\%."""
+    if pd.isna(udzial):
+        return "--"
+    return f"{udzial * 100:.1f}".replace(".", "{,}") + "\\%"
+
+
+def zapisz_tabele_tex(
+    wiersze: list[list[str]],
+    plik: Path,
+    *,
+    naglowek: list[str],
+    podpis: str,
+    etykieta: str,
+    szerokosc_pierwszej: float = 0.30,
+    uwaga: str | None = None,
+    naglowek_nad: str | None = None,
+) -> None:
+    """Zapisuje tabelę jako gotowy fragment LaTeX-a (środowisko longtable).
+
+    Do dokumentu wstawia się ją poleceniem \\input{tabele/<nazwa pliku bez .tex>}.
+    Komórki muszą być już sformatowane (liczba_tex, procent_tex). Typ kolumny P
+    (wyrównanie do lewej) jest zdefiniowany w preambule Lab02.tex.
+    naglowek_nad to opcjonalny dodatkowy wiersz nagłówka nad głównym (gotowy
+    zapis LaTeX-a, np. z \\multicolumn), gdy kolumny tworzą grupy.
+
+    Szerokości kolumn: pierwsza – szerokosc_pierwszej, pozostałe dzielą resztę
+    po równo. Suma jest mniejsza od szerokości tekstu o odstępy między
+    kolumnami (po ok. 2,6% szerokości na każdą granicę), inaczej tabela
+    wystawałaby na margines.
+    """
+    n = len(naglowek)
+    razem = 0.97 - 0.0265 * (n - 1)
+    reszta = (razem - szerokosc_pierwszej) / (n - 1)
+    kolumny = " ".join(
+        [f"P{{{szerokosc_pierwszej:.2f}\\linewidth}}"] + [f"P{{{reszta:.3f}\\linewidth}}"] * (n - 1)
+    )
+    linia_naglowka = "  " + " & ".join(naglowek) + " \\\\"
+    if naglowek_nad:
+        linia_naglowka = f"  {naglowek_nad} \\\\\n" + linia_naglowka
+    linie = [
+        "% Wygenerowano skryptem kod/analiza/eksploracja.py – liczb nie poprawiać ręcznie,",
+        "% tylko uruchomić skrypt ponownie. Podpis można przeredagować.",
+        "\\begingroup\\small",
+        f"\\begin{{longtable}}{{@{{}}{kolumny}@{{}}}}",
+        f"  \\caption{{{podpis}}}\\label{{{etykieta}}}\\\\",
+        "  \\toprule",
+        linia_naglowka,
+        "  \\midrule",
+        "  \\endfirsthead",
+        "  \\toprule",
+        linia_naglowka,
+        "  \\midrule",
+        "  \\endhead",
+        *("  " + " & ".join(wiersz) + " \\\\" for wiersz in wiersze),
+        "  \\bottomrule",
+    ]
+    if uwaga:
+        linie.append(f"  \\multicolumn{{{n}}}{{@{{}}p{{0.9\\linewidth}}}}{{\\footnotesize {uwaga}}}")
+    linie += ["\\end{longtable}", "\\endgroup", ""]
+    plik.write_text("\n".join(linie), encoding="utf-8")
+
+
+# --- 8. Całość ------------------------------------------------------------------------
 
 
 def utworz_parser() -> argparse.ArgumentParser:
@@ -703,16 +978,20 @@ def main(argv: list[str] | None = None) -> int:
 
     Decyzje o doborze danych (do opisania w tekście):
         4.3.1 – rozkład D dla P1 (pokolenie 0, 5 ziaren) i dla ostatniego
-                pokolenia P2 każdego α; rozrzut M osobno dla P1 i P2;
-        4.4.2 – P1: pokolenie 0 pięciu ziaren; P2: każde α osobno, wszystkie
-                pokolenia i ziarna łącznie; zmienne agentów – wszyscy agenci;
-        4.4.3 – P1, decyzje w dylematach agentów z co najmniej D_min decyzjami;
+                pokolenia P2 każdego α; rozrzut M osobno dla P1 i P2, we
+                wspólnych przedziałach D;
+        4.4.2 – P1: pokolenie 0 pięciu ziaren; P2: pierwsze i ostatnie pokolenie
+                każdego α (ziarna łącznie); zmienne agentów – wszyscy agenci;
+                dla porównania w CSV także P2 ze wszystkich pokoleń łącznie;
+        4.4.3 – P1; udziały akcji w całym pokoleniu i oczekiwane w kroku 0;
+                decyzje w dylematach agentów z co najmniej D_min decyzjami;
         4.4.4 – P2, wszystkie pokolenia, średnie po ziarnach.
     Zwraca 0 po poprawnym zakończeniu.
     """
     argumenty = utworz_parser().parse_args(argv)
     a, D_min, wyjscie = argumenty.a, argumenty.D_min, argumenty.wyjscie
-    wyjscie.mkdir(parents=True, exist_ok=True)
+    katalog_tabel = wyjscie / "tabele"
+    katalog_tabel.mkdir(parents=True, exist_ok=True)
 
     # 1. Dane: współczynniki agentów i M_pop dołączone do tabeli pokoleń.
     pokolenia, agenci = wczytaj_pilotaz(argumenty.katalog_wynikow)
@@ -734,20 +1013,60 @@ def main(argv: list[str] | None = None) -> int:
     # 2. Punkt 4.3.1 – liczba dylematów na agenta, wybór a i D_min.
     _naglowek("4.3.1 Liczba dylematów D na agenta")
     grupy_D = {"P1, pokolenie 0": agenci_P1}
+    etykiety_tex = {"P1, pokolenie 0": "P1, pokolenie 0"}
     for alfa, grupa in agenci_P2.groupby("alfa"):
         ostatnie = grupa["pokolenie"].max()
-        grupy_D[f"P2, {_etykieta_alfa(alfa)}, pokolenie {ostatnie}"] = grupa[
-            grupa["pokolenie"] == ostatnie
-        ]
+        nazwa = f"P2, {_etykieta_alfa(alfa)}, pokolenie {ostatnie}"
+        grupy_D[nazwa] = grupa[grupa["pokolenie"] == ostatnie]
+        etykiety_tex[nazwa] = f"P2, {_etykieta_alfa_tex(alfa)}, pokolenie {ostatnie}"
     # pd.concat słownika tabel dokleja nazwę grupy jako pierwszy poziom indeksu
-    _pokaz_i_zapisz(
-        pd.concat({nazwa: podsumuj_D(grupa, D_min) for nazwa, grupa in grupy_D.items()}),
-        wyjscie / "D_podsumowanie.csv",
+    podsumowanie_D = pd.concat({nazwa: podsumuj_D(grupa, D_min) for nazwa, grupa in grupy_D.items()})
+    _pokaz_i_zapisz(podsumowanie_D, wyjscie / "D_podsumowanie.csv")
+    wiersze = []
+    for (grupa, podgrupa), w in podsumowanie_D.iterrows():
+        etykieta = etykiety_tex[grupa] if podgrupa == "wszyscy" else f"\\quad {podgrupa}"
+        wiersze.append(
+            [
+                etykieta,
+                liczba_tex(w["liczba"]),
+                procent_tex(w["odsetek_D0"]),
+                procent_tex(w["odsetek_ponizej_Dmin"]),
+                liczba_tex(w["mediana"], 1),
+                f"{liczba_tex(w['Q1'], 1)}--{liczba_tex(w['Q3'], 1)}",
+            ]
+        )
+    zapisz_tabele_tex(
+        wiersze,
+        katalog_tabel / "tab_dylematy.tex",
+        naglowek=["Grupa agentów", "Agenci", "$D = 0$", "$D < D_{\\min}$", "Mediana $D$", "$Q_1$--$Q_3$"],
+        podpis=f"Liczba dylematów $D$ na agenta: P1 (pokolenie zerowe, 5 ziaren) i ostatnie pokolenie P2 dla każdej wartości $\\alpha$ ($D_{{\\min}} = {D_min}$)",
+        etykieta="tab:dylematy",
+        szerokosc_pierwszej=0.34,
     )
+
     print("\nRozrzut M w przedziałach D (obserwowany a szum przypadku):")
-    _pokaz_i_zapisz(
-        pd.concat({"P1": rozrzut_M_wg_D(agenci_P1, D_min), "P2": rozrzut_M_wg_D(agenci_P2, D_min)}),
-        wyjscie / "M_rozrzut_wg_D.csv",
+    granice = _przedzialy_D(agenci.loc[agenci["D"] > 0, "D"], D_min, od=1)
+    rozrzut = {"P1": rozrzut_M_wg_D(agenci_P1, D_min, granice), "P2": rozrzut_M_wg_D(agenci_P2, D_min, granice)}
+    _pokaz_i_zapisz(pd.concat(rozrzut), wyjscie / "M_rozrzut_wg_D.csv")
+    obok_siebie = rozrzut["P1"].join(rozrzut["P2"], suffixes=("_P1", "_P2"), how="outer")
+    obok_siebie = obok_siebie.reindex([e for e in _etykiety_przedzialow(granice) if e in obok_siebie.index])
+    wiersze = []
+    for przedzial, w in obok_siebie.iterrows():
+        wiersz = [przedzial.replace("–", "--")]  # półpauza w zapisie LaTeX-a
+        for seria in ("P1", "P2"):
+            wiersz += [
+                liczba_tex(w[f"liczba_{seria}"], 0),
+                liczba_tex(w[f"odch_std_M_{seria}"]),
+                liczba_tex(w[f"odch_std_szum_{seria}"]),
+            ]
+        wiersze.append(wiersz)
+    zapisz_tabele_tex(
+        wiersze,
+        katalog_tabel / "tab_rozrzut.tex",
+        naglowek=["Przedział $D$", "P1: agenci", "P1: odch. std. $M$", "P1: szum", "P2: agenci", "P2: odch. std. $M$", "P2: szum"],
+        podpis="Odchylenie standardowe współczynnika $M$ w przedziałach liczby dylematów $D$ (agenci z $D > 0$) i odchylenie, które dałby sam przypadek przy tych samych skłonnościach wszystkich agentów (szum)",
+        etykieta="tab:rozrzut",
+        szerokosc_pierwszej=0.16,
     )
     wykres_histogram_D(
         {nazwa: grupa["D"] for nazwa, grupa in grupy_D.items()}, D_min, wyjscie / "histogram_D.pdf"
@@ -757,21 +1076,65 @@ def main(argv: list[str] | None = None) -> int:
     # 3. Punkt 4.4.2 – statystyki opisowe.
     _naglowek("4.4.2 Statystyki opisowe")
     print("P1 (pokolenie 0, 5 ziaren; zmienne agentów – wszyscy agenci):")
-    _pokaz_i_zapisz(statystyki_opisowe(agenci_P1, pokolenia_P1), wyjscie / "statystyki_P1.csv")
+    statystyki_P1 = statystyki_opisowe(agenci_P1, pokolenia_P1)
+    _pokaz_i_zapisz(statystyki_P1, wyjscie / "statystyki_P1.csv")
+    zapisz_tabele_tex(
+        [
+            [ETYKIETY_TEX[nazwa]] + [liczba_tex(w[k]) for k in ("srednia", "mediana", "odch_std", "min", "maks")]
+            for nazwa, w in statystyki_P1.iterrows()
+        ],
+        katalog_tabel / "tab_statystyki_P1.tex",
+        naglowek=["Zmienna", "Średnia", "Mediana", "Odch. std.", "Min.", "Maks."],
+        podpis=f"Statystyki opisowe – P1 (pokolenie zerowe, {agenci_P1['przebieg'].nunique()} ziaren, {len(agenci_P1)} agentów); zmienne agentów – wszyscy agenci",
+        etykieta="tab:statystyki",
+        szerokosc_pierwszej=0.34,
+    )
     for alfa, grupa in agenci_P2.groupby("alfa"):
-        print(f"\nP2, {_etykieta_alfa(alfa)} (wszystkie pokolenia i ziarna łącznie):")
+        print(f"\nP2, {_etykieta_alfa(alfa)} (wszystkie pokolenia i ziarna łącznie – tylko CSV):")
         _pokaz_i_zapisz(
             statystyki_opisowe(grupa, pokolenia_P2[pokolenia_P2["alfa"] == alfa]),
             wyjscie / f"statystyki_P2_alfa_{alfa}.csv",
         )
+    print("\nP2 – średnie w pierwszym i ostatnim pokoleniu:")
+    pierwsze_ostatnie = statystyki_pierwsze_ostatnie(agenci_P2, pokolenia_P2)
+    _pokaz_i_zapisz(pierwsze_ostatnie, wyjscie / "statystyki_P2_pierwsze_ostatnie.csv")
+    ziarna = pokolenia_P2.groupby(["alfa", "pokolenie"])["przebieg"].nunique()
+    mniej_ziaren = [
+        f"{_etykieta_alfa_tex(alfa)} – {ziarna[(alfa, numer)]} z {ziarna[(alfa, 0)]} ziaren"
+        for alfa, numer in pierwsze_ostatnie.columns
+        if numer > 0 and ziarna[(alfa, numer)] < ziarna[(alfa, 0)]
+    ]
+    uwaga = "Zmienne agentów – średnia po agentach pokolenia (ziarna łącznie); zmienne pokoleń – średnia po ziarnach."
+    if mniej_ziaren:
+        uwaga += " W ostatnim pokoleniu przy " + "; ".join(mniej_ziaren) + " (reszta wymarła wcześniej)."
+    # Dwa wiersze nagłówka: nad każdą parą kolumn (pierwsze, ostatnie pokolenie) – wartość α.
+    wartosci_alfa = list(dict.fromkeys(alfa for alfa, _ in pierwsze_ostatnie.columns))
+    naglowek_nad = " & " + " & ".join(
+        f"\\multicolumn{{2}}{{l}}{{{_etykieta_alfa_tex(alfa)}}}" for alfa in wartosci_alfa
+    )
+    zapisz_tabele_tex(
+        [
+            [ETYKIETY_TEX[nazwa]] + [liczba_tex(v) for v in w]
+            for nazwa, w in pierwsze_ostatnie.iterrows()
+        ],
+        katalog_tabel / "tab_statystyki_P2.tex",
+        naglowek=["Zmienna"] + [f"pok.~{numer}" for _, numer in pierwsze_ostatnie.columns],
+        podpis="Statystyki opisowe – P2: średnie w pierwszym i ostatnim pokoleniu dla każdej wartości $\\alpha$",
+        etykieta="tab:statystyki-p2",
+        szerokosc_pierwszej=0.24,
+        uwaga=uwaga,
+        naglowek_nad=naglowek_nad,
+    )
 
     # 4. Punkt 4.4.3 – pokolenie zerowe jako punkt odniesienia.
     _naglowek("4.4.3 Pokolenie zerowe (P1)")
+    przebiegi_P1 = sorted(agenci_P1["przebieg"].unique())
     udzialy = udzialy_akcji(pokolenia_P1)
-    print("Udziały akcji we wszystkich decyzjach:")
-    _pokaz_i_zapisz(udzialy, wyjscie / "udzialy_akcji_P1.csv")
+    udzialy_k0 = udzialy_akcji_krok0(argumenty.katalog_wynikow, przebiegi_P1)
+    print("Udziały akcji: oczekiwane w kroku 0 i we wszystkich decyzjach pokolenia:")
+    _pokaz_i_zapisz(pd.concat([udzialy_k0, udzialy], axis=1), wyjscie / "udzialy_akcji_P1.csv")
     z_dylematami = agenci_P1[agenci_P1["D"] > 0]
-    print(f"\nŚredni profil (s, k, n) agentów z D > 0 (n = {len(z_dylematami)}):")
+    print(f"\nŚredni profil (P_S, P_K, P_O) agentów z D > 0 (n = {len(z_dylematami)}):")
     print(z_dylematami[["s", "k", "n"]].mean().round(3).to_string())
     print(
         f"M agentów z D > 0: średnia {z_dylematami['M'].mean():.3f}, "
@@ -779,24 +1142,27 @@ def main(argv: list[str] | None = None) -> int:
         f"odsetek M = 0: {(z_dylematami['M'] == 0).mean():.3f}"
     )
     M_pop_P1 = (agenci_P1["S"].sum() - agenci_P1["K"].sum()) / agenci_P1["D"].sum()
-    print(f"M_pop całej serii P1 (poziom odniesienia dla 4.4.4): {M_pop_P1:.4f}")
-
-    dylematy_P1 = wczytaj_dylematy(
-        argumenty.katalog_wynikow, sorted(agenci_P1["przebieg"].unique())
+    zakres_P1 = (pokolenia_P1["M_pop"].min(), pokolenia_P1["M_pop"].max())
+    print(
+        f"M_pop całej serii P1 (poziom odniesienia dla 4.4.4): {M_pop_P1:.4f}; "
+        f"zakres między ziarnami: {zakres_P1[0]:.3f} … {zakres_P1[1]:.3f}"
     )
+
+    dylematy_P1 = wczytaj_dylematy(argumenty.katalog_wynikow, przebiegi_P1)
     najczestsza = najczestsza_akcja_w_dylematach(dylematy_P1, min_decyzji=D_min)
     print(
         f"\nUdział najczęstszej akcji agenta w jego dylematach (agenci z co najmniej "
         f"{D_min} decyzjami, n = {len(najczestsza)}): mediana {najczestsza.median():.3f}, "
         f"odsetek agentów z udziałem ≥ 0,9: {(najczestsza >= 0.9).mean():.3f}"
     )
-    wykres_pokolenie_zerowe(udzialy, agenci_P1, wyjscie / "pokolenie_zerowe.pdf")
+    wykres_pokolenie_zerowe(udzialy, agenci_P1, wyjscie / "pokolenie_zerowe.pdf", udzialy_krok0=udzialy_k0)
 
     # 5. Punkt 4.4.4 – kolejne pokolenia dla trzech wartości α.
     _naglowek("4.4.4 Przeżywalność i M_pop w kolejnych pokoleniach (P2)")
     w_pokoleniach = przebieg_w_pokoleniach(pokolenia_P2)
     w_pokoleniach.to_csv(wyjscie / "przebieg_w_pokoleniach.csv", index=False, float_format="%.4f")
-    wybrane = w_pokoleniach[w_pokoleniach["pokolenie"].isin([0, 1, 2, 5, 10, 20, 30, 40, 49])]
+    wybrane_numery = [0, 1, 2, 5, 10, 20, 30, 40, 49]
+    wybrane = w_pokoleniach[w_pokoleniach["pokolenie"].isin(wybrane_numery)]
     _pokaz_i_zapisz(wybrane.set_index(["alfa", "pokolenie"]), wyjscie / "przebieg_wybrane_pokolenia.csv")
     wymarle = pokolenia_P2.loc[pokolenia_P2["zywi_koniec"] == 0, ["przebieg", "pokolenie"]]
     print("Wymarcia:", ", ".join(f"{w.przebieg} (pokolenie {w.pokolenie})" for w in wymarle.itertuples()) or "brak")
@@ -805,8 +1171,15 @@ def main(argv: list[str] | None = None) -> int:
         "Pokolenia z wariantem awaryjnym (suma po ziarnach):",
         ", ".join(f"{_etykieta_alfa(alfa)}: {int(liczba)}" for alfa, liczba in awaryjne.items()),
     )
+    akcje = udzialy_akcji_w_pokoleniach(pokolenia_P2)
+    akcje.to_csv(wyjscie / "akcje_w_pokoleniach.csv", index=False, float_format="%.4f")
+    print("\nUdział grup akcji w wybranych pokoleniach:")
+    print(akcje[akcje["pokolenie"].isin(wybrane_numery)].set_index(["alfa", "pokolenie"]).round(3).to_string())
     wykres_przezywalnosc(pokolenia_P2, wyjscie / "przezywalnosc.pdf")
-    wykres_m_pop(pokolenia_P2, wyjscie / "M_pop.pdf", poziom_odniesienia=M_pop_P1)
+    wykres_m_pop(
+        pokolenia_P2, wyjscie / "M_pop.pdf", poziom_odniesienia=M_pop_P1, zakres_odniesienia=zakres_P1
+    )
+    wykres_akcje_w_pokoleniach(pokolenia_P2, wyjscie / "akcje_w_pokoleniach.pdf")
 
     print(f"\nGotowe. Tabele i wykresy: {wyjscie}")
     return 0

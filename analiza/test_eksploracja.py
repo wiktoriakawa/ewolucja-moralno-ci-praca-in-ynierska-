@@ -5,11 +5,13 @@ Ostatni test uruchamia cały skrypt na małym, właśnie zasymulowanym pilotażu
 Uruchomienie z katalogu kod/:
     PYTHONPATH=src python -m pytest analiza -q
 """
+import re
+
 import numpy as np
 import pandas as pd
 import pytest
 
-import eksploracja
+from analiza import eksploracja
 from moralnosc.__main__ import main as uruchom_symulacje
 
 
@@ -133,6 +135,24 @@ def test_statystyki_opisowe_krok_smierci_tylko_zmarlych(agenci):
     assert wynik.loc["M (agenci z D > 0)", "liczba"] == 2  # agent z D = 0 pominięty
 
 
+def test_statystyki_pierwsze_ostatnie(agenci):
+    # Ten sam zestaw agentów w pokoleniu 0 i 1, ale w pokoleniu 1 z większym D.
+    pierwsze = agenci.assign(alfa=0.85, zasoby_koniec=1.0, krok_smierci=300, przyczyna_smierci=2)
+    ostatnie = pierwsze.assign(pokolenie=1, N_o=pierwsze["N_o"] + 2, D=pierwsze["D"] + 2)
+    dane = eksploracja.dodaj_wspolczynniki(pd.concat([pierwsze, ostatnie], ignore_index=True), a=2.0)
+    pokolenia = pd.DataFrame(
+        {"alfa": [0.85, 0.85], "pokolenie": [0, 1], "przezywalnosc": [0.5, 1.0],
+         "zakwalifikowani": [1, 3], "M_pop": [0.125, 0.1]}
+    )
+
+    wynik = eksploracja.statystyki_pierwsze_ostatnie(dane, pokolenia)
+
+    assert list(wynik.columns) == [(0.85, 0), (0.85, 1)]
+    assert wynik.loc["D (agenci)", (0.85, 0)] == pytest.approx(8 / 3)
+    assert wynik.loc["D (agenci)", (0.85, 1)] == pytest.approx(14 / 3)
+    assert wynik.loc["przeżywalność (pokolenia)", (0.85, 1)] == pytest.approx(1.0)
+
+
 # --- 4.4.3 ------------------------------------------------------------------------------
 
 
@@ -174,9 +194,50 @@ def test_przebieg_w_pokoleniach_liczy_ziarna():
     assert wynik.loc[0, "awaryjny_liczba"] == 1
 
 
+def test_udzialy_akcji_w_pokoleniach():
+    # Dwa ziarna jednego pokolenia: najpierw sumujemy zliczenia, potem dzielimy.
+    zliczenia = {f"akcja_{kod}": [0, 0] for kod in range(8)}
+    zliczenia["akcja_0"] = [2, 0]  # ruch
+    zliczenia["akcja_4"] = [2, 4]  # zbierz
+    zliczenia["akcja_5"] = [0, 2]  # dziel
+    pokolenia = pd.DataFrame({"alfa": [1.0, 1.0], "pokolenie": [0, 0], **zliczenia})
+
+    wynik = eksploracja.udzialy_akcji_w_pokoleniach(pokolenia).iloc[0]
+
+    assert wynik["ruch"] == pytest.approx(0.2)
+    assert wynik["zbierz"] == pytest.approx(0.6)
+    assert wynik["dziel"] == pytest.approx(0.2)
+    assert wynik[list(eksploracja.GRUPY_AKCJI)].sum() == pytest.approx(1.0)
+
+
 def test_etykieta_alfa():
     assert eksploracja._etykieta_alfa(0.85) == "α = 0,85"
     assert eksploracja._etykieta_alfa(1.0) == "α = 1,0"
+    assert eksploracja._etykieta_alfa_tex(0.85) == "$\\alpha = 0{,}85$"
+
+
+# --- tabele LaTeX-a -----------------------------------------------------------------------
+
+
+def test_liczba_tex():
+    assert eksploracja.liczba_tex(3.0) == "3"
+    assert eksploracja.liczba_tex(0.25) == "0{,}25"
+    assert eksploracja.liczba_tex(-0.25) == "$-$0{,}25"
+    assert eksploracja.liczba_tex(-0.001) == "0"  # bez „−0”
+    assert eksploracja.liczba_tex(np.nan) == "--"
+    assert eksploracja.procent_tex(0.314) == "31{,}4\\%"
+
+
+def test_zapisz_tabele_tex(tmp_path):
+    plik = tmp_path / "tab.tex"
+    eksploracja.zapisz_tabele_tex(
+        [["a", "1"], ["b", "2"]], plik, naglowek=["Zmienna", "Wartość"], podpis="Podpis", etykieta="tab:x"
+    )
+    tekst = plik.read_text(encoding="utf-8")
+    assert "\\begin{longtable}" in tekst and "\\end{longtable}" in tekst
+    assert "\\caption{Podpis}\\label{tab:x}" in tekst
+    assert "  a & 1 \\\\" in tekst and "  b & 2 \\\\" in tekst
+    assert tekst.count("{") == tekst.count("}")
 
 
 # --- całość -----------------------------------------------------------------------------
@@ -219,8 +280,8 @@ katalog = "{katalog}"
 """
 
 
-def test_main_tworzy_tabele_i_wykresy(tmp_path):
-    """Mały pilotaż (P1 i dwie wartości α w P2) → cały skrypt → wszystkie pliki."""
+def _maly_pilotaz(tmp_path):
+    """Symuluje P1 (1 pokolenie) i dwie wartości α w P2 (po 3 pokolenia)."""
     wyniki = tmp_path / "wyniki"
     for nazwa, pokolenia, alfa in (
         ("P1_z1", 1, 1.0),
@@ -235,11 +296,26 @@ def test_main_tworzy_tabele_i_wykresy(tmp_path):
             encoding="utf-8",
         )
         assert uruchom_symulacje(["przebieg", str(plik)]) == 0
+    return wyniki
+
+
+def test_udzialy_akcji_krok0_sumuja_sie_do_1(tmp_path):
+    wyniki = _maly_pilotaz(tmp_path)
+    wynik = eksploracja.udzialy_akcji_krok0(wyniki, ["P1_z1"])
+    assert len(wynik) == 8
+    assert wynik.sum() == pytest.approx(1.0)
+    assert (wynik > 0).all()  # softmax daje każdej akcji dodatnie prawdopodobieństwo
+
+
+def test_main_tworzy_tabele_i_wykresy(tmp_path):
+    """Mały pilotaż (P1 i dwie wartości α w P2) → cały skrypt → wszystkie pliki."""
+    wyniki = _maly_pilotaz(tmp_path)
 
     wyjscie = tmp_path / "analiza"
     assert eksploracja.main([str(wyniki), "--wyjscie", str(wyjscie), "--D-min", "2"]) == 0
 
     oczekiwane = {
+        "tabele",
         "D_podsumowanie.csv",
         "M_rozrzut_wg_D.csv",
         "histogram_D.pdf",
@@ -247,11 +323,25 @@ def test_main_tworzy_tabele_i_wykresy(tmp_path):
         "statystyki_P1.csv",
         "statystyki_P2_alfa_0.85.csv",
         "statystyki_P2_alfa_3.0.csv",
+        "statystyki_P2_pierwsze_ostatnie.csv",
         "udzialy_akcji_P1.csv",
         "pokolenie_zerowe.pdf",
         "przebieg_w_pokoleniach.csv",
         "przebieg_wybrane_pokolenia.csv",
+        "akcje_w_pokoleniach.csv",
         "przezywalnosc.pdf",
         "M_pop.pdf",
+        "akcje_w_pokoleniach.pdf",
     }
     assert {plik.name for plik in wyjscie.iterdir()} == oczekiwane
+    tabele = {plik.name for plik in (wyjscie / "tabele").iterdir()}
+    assert tabele == {
+        "tab_dylematy.tex",
+        "tab_rozrzut.tex",
+        "tab_statystyki_P1.tex",
+        "tab_statystyki_P2.tex",
+    }
+    for plik in (wyjscie / "tabele").iterdir():
+        tekst = plik.read_text(encoding="utf-8")
+        assert tekst.count("{") == tekst.count("}")
+        assert re.search(r"\bnan\b", tekst, re.IGNORECASE) is None  # braki danych jako „--”
