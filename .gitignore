@@ -36,4 +36,6 @@ docs/kontrakt.md
 
 # Wyniki przebiegów i pliki robocze generatora konfiguracji
 wyniki/
+wyniki_archiwum_*/
+wyniki_analizy/
 konfiguracje/pilotaz/*.tmp

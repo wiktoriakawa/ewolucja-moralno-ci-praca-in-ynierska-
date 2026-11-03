@@ -38,16 +38,17 @@ Planowane elementy prototypu:
 
 - Python 3.11 lub nowszy;
 - NumPy;
+- pandas do kontroli jakości i analizy danych;
+- Matplotlib do tworzenia wykresów;
 - pytest do uruchamiania testów.
 
 Projekt został lokalnie sprawdzony z użyciem:
 
 - Python 3.13.2 i 3.14.5;
 - NumPy 2.5.4;
+- pandas 3.1.0;
+- Matplotlib 3.11.2;
 - pytest 9.1.1.
-
-Biblioteki pandas i Matplotlib będą potrzebne na późniejszym etapie do analizy
-i wizualizacji wyników.
 
 ## Przygotowanie środowiska
 
