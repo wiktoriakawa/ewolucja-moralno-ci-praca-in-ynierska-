@@ -39,6 +39,25 @@ wyniki_analizy/P2_niedobor_z201_2026-11-02_15-30-12/
 
 Dzięki temu kolejne uruchomienia nie nadpisują wcześniejszych wyników.
 
+Kontrola obejmuje m.in. ciągłość numerów pokoleń, zgodność agregatów
+pokoleń z danymi agentów, przypisanie dylematów do agentów, reguły śmierci
+i kwalifikacji oraz zgodność klas, wyników i kwot akcji.
+
+## Kontrola powtarzalności
+
+Opcja `--porownaj` sprawdza wymaganie NF-03 przez porównanie trzech plików
+CSV dwóch przebiegów wykonanych z tą samą konfiguracją i ziarnem:
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m analiza.jakosc wyniki/P3_a `
+    --porownaj wyniki/P3_b `
+    --wyjscie wyniki_analizy
+```
+
+Plik `konfiguracja.json` nie jest porównywany, ponieważ zawiera czas
+uruchomienia przebiegu.
+
 ## Wyniki
 
 Skrypt tworzy:
