@@ -34,6 +34,9 @@ dyskusja.md
 # Lokalna wersja kontraktu roboczego
 docs/kontrakt.md
 
+# Lokalne pliki robocze, nieprzeznaczone do repozytorium
+/lokalne/
+
 # Wyniki przebiegów i pliki robocze generatora konfiguracji
 wyniki/
 wyniki_archiwum_*/

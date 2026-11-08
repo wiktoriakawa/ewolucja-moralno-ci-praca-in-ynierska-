@@ -10,7 +10,8 @@ zachowań w kolejnych pokoleniach.
 
 ## Status projektu
 
-Projekt znajduje się na etapie tworzenia prototypu Lab02.
+Projekt znajduje się na etapie przygotowania kamienia milowego KM3,
+obejmującego rozwój modelu i kalibrację jego parametrów.
 
 Obecnie zaimplementowane są:
 
@@ -27,12 +28,17 @@ Obecnie zaimplementowane są:
 - przyrostowy zapis wyników do plików CSV;
 - konfiguracje przebiegów pilotażowych;
 - uruchamianie przebiegu jednym poleceniem ze ścieżką do konfiguracji;
-- testy minimalne powyższych elementów.
+- kontrola jakości danych i sprawdzanie powtarzalności przebiegów;
+- podstawowa analiza wyników i eksploracja danych pilotażowych;
+- automatyczne tworzenie tabel i wykresów;
+- testy jednostkowe i integracyjne powyższych elementów.
 
-Planowane elementy prototypu:
+Najważniejsze elementy planowane w KM3:
 
-- kontrola jakości i analiza wyników;
-- podstawowe wykresy przebiegów pilotażowych.
+- rozszerzenie walidacji konfiguracji;
+- uruchamianie serii przebiegów;
+- rozbudowa sieci neuronowej i pomiarów;
+- kalibracja parametrów modelu.
 
 ## Wymagania
 
@@ -93,6 +99,12 @@ PYTHONPATH=src python -m moralnosc przebieg konfiguracje/pilotaz/P1_z101.toml
 Po zakończeniu powstają plik `konfiguracja.json` oraz pliki
 `pokolenia.csv`, `agenci.csv` i `dylematy.csv`.
 
+## Analiza wyników
+
+Katalog `analiza` zawiera kontrolę jakości pojedynczego przebiegu oraz
+eksplorację danych pilotażowych. Instrukcje uruchomienia i opis tworzonych
+plików znajdują się w pliku [`analiza/README.md`](analiza/README.md).
+
 ## Uruchamianie testów
 
 Projekt korzysta z układu katalogów `src`, dlatego przed uruchomieniem testów
@@ -128,9 +140,19 @@ src/moralnosc/
 ├── pomiar.py        # rejestrowanie pomiarów jednego pokolenia
 └── zapis.py         # konfiguracja JSON i przyrostowy zapis wyników CSV
 
+konfiguracje/
+├── bazowa.toml        # bazowa konfiguracja modelu
+├── generuj_pilotaz.py # generowanie konfiguracji P1–P3
+└── pilotaz/           # konfiguracje przebiegów pilotażowych
+
+analiza/
+├── jakosc.py          # kontrola jakości i analiza pojedynczego przebiegu
+├── eksploracja.py     # eksploracja wyników całego pilotażu
+└── README.md          # instrukcja uruchamiania analizy
+
 tests/
 ├── pomocnicze.py    # sprawdzanie niezmienników stanu
-└── test_<moduł>.py  # testy minimalne każdego modułu
+└── test_<moduł>.py  # testy jednostkowe i integracyjne
 ```
 
 ## Konwencje
