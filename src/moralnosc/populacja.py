@@ -7,20 +7,12 @@ from moralnosc.stan import KIERUNKI, PUSTE, Stan
 
 
 def rozmiesc_losowo(stan: Stan, rng: np.random.Generator) -> None:
-    """Rozmieszcza N agentów na losowych, różnych polach i losuje ich kierunki.
-
-    Argumenty:
-        stan: stan z ustalonymi rozmiarami (H×W z mapy zajętości, N z tablicy pozycji),
-              np. z pusty_stan; N ≤ H·W (sprawdza konfiguracja).
-        rng:  generator przebiegu.
-
-    Nic nie zwraca, zmienia stan.pozycje, stan.zajetosc i stan.kierunki.
-    """
+    """N agentów na losowych, różnych polach, z losowymi kierunkami (N ≤ H·W)."""
     H = stan.zajetosc.shape[0]
     W = stan.zajetosc.shape[1]
-    N = stan.pozycje.shape[0]  # liczba agentów
+    N = stan.pozycje.shape[0]
 
-    numery_pol = rng.choice(H * W, size=N, replace=False)  # losowe, różne pola
+    numery_pol = rng.choice(H * W, size=N, replace=False)
     wiersze, kolumny = np.divmod(numery_pol, W)
     stan.pozycje[:, 0] = wiersze
     stan.pozycje[:, 1] = kolumny
@@ -30,13 +22,9 @@ def rozmiesc_losowo(stan: Stan, rng: np.random.Generator) -> None:
 
 
 def ruch(stan: Stan, i: int, kierunek: int) -> bool:
-    """Próba ruchu agenta i o jedno pole w zadanym kierunku (akcje 0–3).
+    """Ruch agenta i o jedno pole; False przy ścianie albo zajętym celu.
 
-    Argumenty: stan, indeks agenta i kierunek ruchu (0 = N, 1 = E, 2 = S, 3 = W).
-    Zwraca: True, jeśli agent się przesunął; False, jeśli cel był poza planszą
-    (ściana) albo zajęty przez innego agenta.
-    Zmienia: stan.kierunki[i] zawsze; stan.pozycje[i] i stan.zajetosc tylko przy
-    udanym ruchu.
+    Kierunek patrzenia zmienia się zawsze, nawet gdy ruch się nie uda.
     """
     stan.kierunki[i] = kierunek
     cel = stan.pozycje[i] + KIERUNKI[kierunek]
@@ -51,30 +39,18 @@ def ruch(stan: Stan, i: int, kierunek: int) -> bool:
 
 
 def usun_martwych(stan: Stan, maska: NDArray[np.bool_]) -> None:
-    """Oznacza agentów z maski jako martwych i zdejmuje ich z mapy zajętości.
+    """Oznacza agentów z maski jako martwych i zdejmuje ich z planszy.
 
-    Argumenty: stan symulacji i maska N wartości logicznych – True dla agentów do usunięcia.
-
-    Zmienia: stan.zywy, stan.zajetosc. Tablice agentów NIE zmieniają rozmiaru
-    – martwy agent zostaje w tablicach do końca pokolenia. Agenci już martwi są
-    pomijani, nawet jeśli maska ich zawiera.
+    Tablice nie zmieniają rozmiaru – martwy zostaje w nich do końca pokolenia.
     """
-    # Pozycja martwego agenta jest nieaktualna – na jego dawnym polu może już stać
-    # ktoś inny. Bez tego zabezpieczenia drugie usunięcie tego samego agenta
-    # skasowałoby z mapy zajętości żywego sąsiada.
+    # tylko żywi: pozycja martwego jest nieaktualna, mogłaby skasować sąsiada
     maska = maska & stan.zywy
     stan.zywy[maska] = False
     stan.zajetosc[stan.pozycje[maska, 0], stan.pozycje[maska, 1]] = PUSTE
 
 
 def pole_przed(stan: Stan) -> tuple[NDArray[np.int64], NDArray[np.bool_]]:
-    """Współrzędne pola przed każdym agentem i informacja, czy leży w planszy.
-
-    Zwraca:
-        cele:      tablica N×2 (int64) – pozycja + KIERUNKI[kierunek] dla każdego
-                   agenta; przy ścianie zawiera współrzędne spoza planszy (−1, H albo W);
-        w_planszy: tablica N wartości logicznych – True, gdy cel leży w planszy.
-    """
+    """(cele N×2, w_planszy N) – pole przed każdym agentem; przy ścianie poza planszą."""
     H, W = stan.zajetosc.shape
     cele = stan.pozycje + KIERUNKI[stan.kierunki]
     w_planszy = (0 <= cele[:, 0]) & (cele[:, 0] < H) & (0 <= cele[:, 1]) & (cele[:, 1] < W)
@@ -82,23 +58,13 @@ def pole_przed(stan: Stan) -> tuple[NDArray[np.int64], NDArray[np.bool_]]:
 
 
 def obserwacje(stan: Stan, skala: float) -> tuple[NDArray[np.float64], NDArray[np.int64]]:
-    """Wejścia sieci dla całej populacji naraz.
+    """Wejścia sieci całej populacji: (obs N×5, przed N).
 
-    Argumenty:
-        stan:  stan symulacji.
-        skala: dzielnik normalizujący zasoby (klucz obserwacje.skala, domyślnie c_max).
-
-    Zwraca:
-        obs:   tablica N×5 (float64), kolumny jak stałe OBS_* w stan.py:
-               0 – zasoby własne agenta,
-               1 – zasoby pola, na którym stoi,
-               2 – zasoby pola przed nim (0 przy ścianie),
-               3 – obecność agenta przed nim (1.0 albo 0.0),
-               4 – zasoby agenta przed nim (0, gdy nikogo nie ma);
-               kolumny 0, 1, 2 i 4 są podzielone przez skala, kolumna 3 – nie;
-        przed: tablica N (int64) – indeks agenta stojącego przed agentem albo PUSTE.
+    Kolumny obs jak stałe OBS_* w stan.py; zasoby dzielone przez skala,
+    obecność sąsiada (kol. 3) to 0/1. przed – indeks agenta przed agentem albo PUSTE.
     """
     cele, w_planszy = pole_przed(stan)
+    # clip tylko po to, żeby indeksować bez błędu; wartości spoza planszy zeruje where
     bezpieczne = np.clip(cele, 0, [stan.zajetosc.shape[0] - 1, stan.zajetosc.shape[1] - 1])
     zasoby_przed = np.where(w_planszy, stan.zasoby_pol[bezpieczne[:, 0], bezpieczne[:, 1]], 0.0)
     przed = np.where(w_planszy, stan.zajetosc[bezpieczne[:, 0], bezpieczne[:, 1]], PUSTE)

@@ -1,16 +1,15 @@
-"""Testy modułu stan.py: stałe, klasa Stan i funkcja pusty_stan."""
+"""Testy stan.py: stałe, klasa Stan i pusty_stan."""
 import numpy as np
 import pytest
 
 from moralnosc import stan as s
 from pomocnicze import sprawdz_niezmienniki
 
-H, W, N, L = 3, 4, 2, 48  # mała plansza 3×4, dwóch agentów, genom sieci liniowej
+H, W, N, L = 3, 4, 2, 48
 
 
 @pytest.fixture
 def pusty():
-    """Świeży pusty stan dla każdego testu (testy nie wpływają na siebie nawzajem)."""
     return s.pusty_stan(H=H, W=W, N=N, L=L)
 
 
@@ -22,7 +21,6 @@ def test_kierunki_ksztalt_i_typ():
 
 
 def test_kazdy_kierunek_to_krok_o_jedno_pole():
-    # w każdym wierszu dokładnie jedna współrzędna zmienia się o 1
     assert np.all(np.abs(s.KIERUNKI).sum(axis=1) == 1)
 
 
@@ -75,10 +73,10 @@ def test_pusty_stan_typy(pusty):
 
 
 def test_pusty_stan_wartosci_poczatkowe(pusty):
-    assert np.all(pusty.zajetosc == s.PUSTE)   # wszystkie pola puste
-    assert np.all(pusty.ids == s.PUSTE)        # identyfikatory jeszcze nienadane
-    assert np.all(pusty.rodzic == s.PUSTE)     # pokolenie zerowe nie ma rodziców
-    assert not pusty.zywy.any()                # nikt jeszcze nie stoi na planszy
+    assert np.all(pusty.zajetosc == s.PUSTE)
+    assert np.all(pusty.ids == s.PUSTE)
+    assert np.all(pusty.rodzic == s.PUSTE)
+    assert not pusty.zywy.any()
     assert (pusty.nastepny_id, pusty.pokolenie, pusty.krok) == (0, 0, 0)
 
 
@@ -95,7 +93,7 @@ def test_pusty_stan_tylko_argumenty_nazwane():
 
 def test_stan_blokuje_literowki_w_nazwach_pol(pusty):
     with pytest.raises(AttributeError):
-        pusty.zasoby_pl = np.zeros(N)   # literówka: zasoby_pl zamiast zasoby_pol
+        pusty.zasoby_pl = np.zeros(N)   # literówka
 
 
 def test_stan_wymaga_pol_podanych_z_nazwa():
@@ -103,10 +101,9 @@ def test_stan_wymaga_pol_podanych_z_nazwa():
         s.Stan(np.zeros((H, W)))
 
 
-# --- sprawdzenie samego pomocnika ------------------------------------------
+# --- sam pomocnik ----------------------------------------------------------
 
 def test_pomocnik_wykrywa_agenta_spoza_mapy_zajetosci(pusty):
-    # żywy agent, którego nie ma na mapie zajętości – niezmiennik 1 musi to wykryć
-    pusty.zywy[0] = True
+    pusty.zywy[0] = True   # żywy, ale nie na mapie
     with pytest.raises(AssertionError):
         sprawdz_niezmienniki(pusty)
