@@ -42,6 +42,7 @@ x = 1.0
 [siec]
 tryb = "argmax"
 tau = 1.0
+h = 0
 
 [ewolucja]
 T = 0.0
