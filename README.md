@@ -99,6 +99,42 @@ PYTHONPATH=src python -m moralnosc przebieg konfiguracje/pilotaz/P1_z101.toml
 Po zakończeniu powstają plik `konfiguracja.json` oraz pliki
 `pokolenia.csv`, `agenci.csv` i `dylematy.csv`.
 
+## Uruchamianie serii
+
+Definicja serii łączy konfigurację bazową, wspólne wartości, warianty oraz
+ziarna. Każda para wariant–ziarno jest uruchamiana jako osobny przebieg i ma
+własny katalog wyników. Przykładem jest `konfiguracje/kalibracja/K1.toml`.
+
+Plik definicji serii składa się z:
+
+- `[seria]` – nazwy serii, ścieżki konfiguracji bazowej, katalogu wyników oraz
+  listy ziaren;
+- `[stale]` – wartości wspólnych dla wszystkich przebiegów, zapisanych jako
+  klucze `"sekcja.pole"`;
+- jednej lub wielu tabel `[[warianty]]` – nazwy wariantu i wartości zmienianych
+  w tym wariancie, również zapisanych jako `"sekcja.pole"`.
+
+Wartości są nakładane w kolejności: konfiguracja bazowa, wartości stałe,
+wartości wariantu, a na końcu automatycznie ustawiane ziarno i katalog danego
+przebiegu. Pola `przebieg.ziarno` i `zapis.katalog` nie mogą więc występować
+w `[stale]` ani `[[warianty]]`.
+
+Windows PowerShell:
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m moralnosc seria konfiguracje/kalibracja/K1.toml
+```
+
+Linux:
+
+```bash
+PYTHONPATH=src python -m moralnosc seria konfiguracje/kalibracja/K1.toml
+```
+
+Postęp i błędy są zapisywane w pliku `status.csv` w katalogu serii. Istniejące
+niepuste katalogi przebiegów nie są nadpisywane.
+
 ## Analiza wyników
 
 Katalog `analiza` zawiera kontrolę jakości pojedynczego przebiegu oraz
@@ -134,7 +170,8 @@ src/moralnosc/
 ├── populacja.py     # rozmieszczanie, ruch i obserwacje agentów
 ├── siec.py          # sieć neuronowa i wybór akcji
 ├── ewolucja.py      # pokolenie zerowe, kwalifikacja, mutacja, nowe pokolenie
-├── konfiguracja.py  # wczytywanie i minimalna walidacja pliku TOML
+├── konfiguracja.py  # wczytywanie i pełna walidacja pliku TOML
+├── seria.py         # definicja i wykonywanie serii wariantów oraz ziaren
 ├── interakcje.py    # dzielenie, kradzież i metabolizm
 ├── petla.py         # akcje, kroki, pokolenia i pełny przebieg symulacji
 ├── pomiar.py        # rejestrowanie pomiarów jednego pokolenia
@@ -142,6 +179,7 @@ src/moralnosc/
 
 konfiguracje/
 ├── bazowa.toml        # bazowa konfiguracja modelu
+├── kalibracja/         # definicje serii kalibracyjnych
 ├── generuj_pilotaz.py # generowanie konfiguracji P1–P3
 └── pilotaz/           # konfiguracje przebiegów pilotażowych
 

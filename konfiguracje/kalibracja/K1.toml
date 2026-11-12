@@ -1,0 +1,62 @@
+# K1: kalibracja skali obserwacji i temperatury softmax.
+# Jedna seria = konfiguracja bazowa + zmiany wspólne + wariant × ziarno.
+
+[seria]
+nazwa = "K1"
+# Pytanie: czy decyzje softmax są wystarczająco zróżnicowane? (Lab02 p. 4.4.3: w P1
+# najczęstsza akcja agenta to w medianie 89 % jego decyzji; przy skali 5 wejście
+# „własne zasoby” = 10 na starcie i dominuje wyjścia sieci).
+bazowa = "konfiguracje/bazowa.toml"
+katalog = "wyniki/K1"
+ziarna = [401, 402, 403]
+
+[stale]
+# Warstwa ukryta z rejestru decyzji D2; alfa i T jak w konfiguracji bazowej.
+"siec.h" = 8
+"przebieg.pokolenia" = 10
+
+# 3 skale × 3 temperatury = 9 wariantów, czyli 27 przebiegów.
+[[warianty]]
+nazwa = "s5_t0.5"
+"obserwacje.skala" = 5.0
+"siec.tau" = 0.5
+
+[[warianty]]
+nazwa = "s5_t1"
+"obserwacje.skala" = 5.0
+"siec.tau" = 1.0
+
+[[warianty]]
+nazwa = "s5_t2"
+"obserwacje.skala" = 5.0
+"siec.tau" = 2.0
+
+[[warianty]]
+nazwa = "s10_t0.5"
+"obserwacje.skala" = 10.0
+"siec.tau" = 0.5
+
+[[warianty]]
+nazwa = "s10_t1"
+"obserwacje.skala" = 10.0
+"siec.tau" = 1.0
+
+[[warianty]]
+nazwa = "s10_t2"
+"obserwacje.skala" = 10.0
+"siec.tau" = 2.0
+
+[[warianty]]
+nazwa = "s50_t0.5"
+"obserwacje.skala" = 50.0
+"siec.tau" = 0.5
+
+[[warianty]]
+nazwa = "s50_t1"
+"obserwacje.skala" = 50.0
+"siec.tau" = 1.0
+
+[[warianty]]
+nazwa = "s50_t2"
+"obserwacje.skala" = 50.0
+"siec.tau" = 2.0
