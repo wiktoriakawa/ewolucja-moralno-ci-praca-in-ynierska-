@@ -43,7 +43,7 @@ def cfg():
     """Minimalna konfiguracja potrzebna funkcjom krok i wykonaj_akcje."""
     return {
         "obserwacje": {"skala": 4.0},
-        "siec": {"tryb": "argmax", "tau": 1.0},
+        "siec": {"tryb": "argmax", "tau": 1.0, "h": 0},
         "koszty": {
             "ruch": 0.25,
             "s": 1.0,
@@ -73,7 +73,7 @@ def cfg_przebiegu():
             "x": 1.0,
             "m": 0.1,
         },
-        "siec": {"tryb": "argmax", "tau": 1.0},
+        "siec": {"tryb": "argmax", "tau": 1.0, "h": 0},
         "ewolucja": {
             "T": 0.0,
             "E0": 100.0,

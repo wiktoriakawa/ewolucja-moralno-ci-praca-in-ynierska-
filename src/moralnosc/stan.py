@@ -1,15 +1,10 @@
-"""Stan symulacji i wspólne stałe projektu.
-
-Moduł nie zawiera logiki symulacji – tylko stałe (kierunki, kody akcji,
-rozmiar sieci), opis stanu symulacji (klasa Stan) i funkcję tworzącą pusty stan.
-Zgodny z kontraktem interfejsów, sekcje 2–3.
-"""
+"""Stan symulacji i wspólne stałe projektu (bez logiki symulacji)."""
 from dataclasses import dataclass, field
 
 import numpy as np
 from numpy.typing import NDArray
 
-# przemieszczanie sie
+# --- kierunki ---
 
 POLNOC = 0
 WSCHOD = 1
@@ -25,97 +20,84 @@ KIERUNKI = np.array(
     ],
     dtype=np.int64,
 )
-KIERUNKI.flags.writeable = False  # tylko do odczytu – zapis zgłosi błąd
+KIERUNKI.flags.writeable = False
 
 
+# --- akcje ---
 RUCH_N = POLNOC
 RUCH_E = WSCHOD
 RUCH_S = POLUDNIE
 RUCH_W = ZACHOD
-ZBIERZ = 4   # zbieranie całego zasobu z pola pod agentem
-DZIEL = 5    # przekazanie kwoty s agentowi przed sobą – akcja prospołeczna
-KRADNIJ = 6  # próba kradzieży od agenta przed sobą – akcja egoistyczna
-NIC = 7      # pozostanie w miejscu – świadoma akcja, w dylemacie obojętna
+ZBIERZ = 4   # cały zasób z pola pod agentem
+DZIEL = 5    # kwota s dla agenta przed sobą (prospołeczna)
+KRADNIJ = 6  # próba kradzieży od agenta przed sobą (egoistyczna)
+NIC = 7      # w dylemacie obojętna
 LICZBA_AKCJI = 8
 
-# Wyniki wykonania akcji używane przez pętlę, pomiar i zapis danych.
+# wyniki akcji
 SUKCES = "sukces"
 PORAZKA = "porazka"
 NIEWYKONANA = "niewykonana"
 WYKONANA = "wykonana"
 
 
-# rozmiar sieci neuronowej: N_WE wejść, N_WY wyjść
-N_WE = 5             # liczba wejść (kolumny macierzy obserwacji, bez biasu)
-N_WY = LICZBA_AKCJI  # jedno wyjście na każdą akcję – obie wartości nie mogą się rozjechać
+# --- sieć ---
+N_WE = 5             # wejścia (kolumny obserwacji, bez biasu)
+N_WY = LICZBA_AKCJI  # jedno wyjście na akcję
 
-# Numery kolumn macierzy obserwacji (N×5), zgodnie z kontraktem, sekcja 4.4.
-OBS_ZASOBY_WLASNE = 0     # zasoby agenta
-OBS_ZASOBY_POD = 1        # zasoby pola, na którym stoi agent
-OBS_ZASOBY_PRZED = 2      # zasoby pola przed agentem (0 przy ścianie)
-OBS_OBECNOSC_SASIADA = 3  # 1, gdy przed agentem stoi inny agent, inaczej 0
-OBS_ZASOBY_SASIADA = 4    # zasoby agenta przed agentem (0, gdy go nie ma)
+# kolumny macierzy obserwacji N×5
+OBS_ZASOBY_WLASNE = 0
+OBS_ZASOBY_POD = 1        # pole, na którym stoi agent
+OBS_ZASOBY_PRZED = 2      # pole przed agentem (0 przy ścianie)
+OBS_OBECNOSC_SASIADA = 3  # 1/0
+OBS_ZASOBY_SASIADA = 4    # 0, gdy nikogo nie ma
 
-# Wartość oznaczająca „brak”: puste pole w mapie zajętości, brak agenta przed
-# sobą, brak rodzica (pokolenie zerowe) i jeszcze nienadany identyfikator.
+# „brak”: puste pole, brak sąsiada, brak rodzica, nienadany id
 PUSTE = -1
-
-
-# klasa stanu symulacji
 
 
 @dataclass(eq=False, slots=True, kw_only=True)
 class Stan:
-    """Stan symulacji w jednej chwili.
+    """Stan symulacji; indeks i to ten sam agent we wszystkich tablicach.
 
-    Indeks i oznacza tego samego agenta we wszystkich tablicach agentów.
-    Oznaczenia kształtów: H×W – plansza, N – liczba agentów, L – długość genomu.
-
-    eq=False     – bez porównywania przez ==, które dla tablic NumPy kończy się błędem;
-    slots=True   – literówka w nazwie pola (np. stan.zasoby_pl = ...) zgłasza błąd;
-    kw_only=True – pola podaje się tylko z nazwą, więc nie da się pomylić kolejności.
+    eq=False – == na tablicach NumPy kończy się błędem; slots=True – literówka
+    w nazwie pola zgłasza błąd; kw_only=True – pola tylko z nazwą.
     """
 
-    # --- plansza ---
-    pojemnosc: NDArray[np.float64]       # H×W, pojemność pól c_max(x, y); stała w przebiegu
-    zasoby_pol: NDArray[np.float64]      # H×W, bieżące zasoby pól; 0 <= zasoby_pol <= pojemnosc
-    zajetosc: NDArray[np.int64]          # H×W, indeks agenta stojącego na polu albo PUSTE
+    # --- plansza (H×W) ---
+    pojemnosc: NDArray[np.float64]       # stała w przebiegu
+    zasoby_pol: NDArray[np.float64]      # 0 <= zasoby_pol <= pojemnosc
+    zajetosc: NDArray[np.int64]          # indeks agenta albo PUSTE
 
-    # --- agenci ---
+    # --- agenci (N) ---
     pozycje: NDArray[np.int64]           # N×2, (wiersz, kolumna)
-    kierunki: NDArray[np.int64]          # N, kierunek patrzenia: POLNOC…ZACHOD (0–3)
-    zasoby_agentow: NDArray[np.float64]  # N, bieżące zasoby agentów
-    zywy: NDArray[np.bool_]              # N, czy agent żyje
-    ids: NDArray[np.int64]               # N, identyfikator unikalny w całym przebiegu
-    rodzic: NDArray[np.int64]            # N, identyfikator rodzica; PUSTE w pokoleniu zerowym
-    genomy: NDArray[np.float64] = field(repr=False)  # N×L, wagi sieci (ukryte przy print)
+    kierunki: NDArray[np.int64]          # 0–3
+    zasoby_agentow: NDArray[np.float64]
+    zywy: NDArray[np.bool_]
+    ids: NDArray[np.int64]               # unikalne w całym przebiegu
+    rodzic: NDArray[np.int64]            # PUSTE w pokoleniu zerowym
+    genomy: NDArray[np.float64] = field(repr=False)  # N×L
 
     # --- liczniki ---
-    nastepny_id: int = 0                 # kolejny wolny identyfikator
-    pokolenie: int = 0                   # numer pokolenia (0 = pokolenie zerowe)
-    krok: int = 0                        # numer kroku w bieżącym pokoleniu liczony od 0
+    nastepny_id: int = 0
+    pokolenie: int = 0
+    krok: int = 0                        # w bieżącym pokoleniu, od 0
 
 
 def pusty_stan(*, H: int, W: int, N: int, L: int) -> Stan:
-    """Tworzy pusty stan: plansza H×W, N agentów, genomy długości L.
+    """Pusty stan o właściwych kształtach: nikt nie żyje ani nie stoi na planszy.
 
-    Argumenty podaje się tylko z nazwą (gwiazdka w sygnaturze), np.
-    pusty_stan(H=64, W=64, N=200, L=48), żeby nie pomylić H, W i N.
-
-    Tablice mają właściwe kształty i typy, ale nie zawierają jeszcze danych:
-    wypełniają je utworz_plansze, losuj_genomy i rozmiesc_losowo (kontrakt,
-    sekcja 5). Nikt nie jest jeszcze żywy ani rozmieszczony, więc niezmienniki
-    stanu są spełnione od początku. Funkcja niczego nie losuje.
+    Dane wpisują utworz_plansze, losuj_genomy i rozmiesc_losowo. Nie losuje.
     """
     return Stan(
         pojemnosc=np.zeros((H, W), dtype=np.float64),
         zasoby_pol=np.zeros((H, W), dtype=np.float64),
-        zajetosc=np.full((H, W), PUSTE, dtype=np.int64),  # wszystkie pola puste
+        zajetosc=np.full((H, W), PUSTE, dtype=np.int64),
         pozycje=np.zeros((N, 2), dtype=np.int64),
         kierunki=np.zeros(N, dtype=np.int64),
         zasoby_agentow=np.zeros(N, dtype=np.float64),
-        zywy=np.zeros(N, dtype=np.bool_),  # False: agenci jeszcze nie stoją na planszy
-        ids=np.full(N, PUSTE, dtype=np.int64),     # identyfikatory nadaje inicjalizacja
-        rodzic=np.full(N, PUSTE, dtype=np.int64),  # pokolenie zerowe nie ma rodziców
+        zywy=np.zeros(N, dtype=np.bool_),
+        ids=np.full(N, PUSTE, dtype=np.int64),
+        rodzic=np.full(N, PUSTE, dtype=np.int64),
         genomy=np.zeros((N, L), dtype=np.float64),
     )

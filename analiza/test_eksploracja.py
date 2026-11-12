@@ -1,8 +1,6 @@
-"""Testy skryptu eksploracji (analiza/eksploracja.py).
+"""Testy eksploracja.py; wartości liczone ręcznie z definicji 3.4.3.
 
-Wartości oczekiwane są policzone ręcznie z definicji w Lab02 (punkt 3.4.3).
-Ostatni test uruchamia cały skrypt na małym, właśnie zasymulowanym pilotażu.
-Uruchomienie z katalogu kod/:
+Ostatni test uruchamia cały skrypt na małym, świeżo zasymulowanym pilotażu.
     PYTHONPATH=src python -m pytest analiza -q
 """
 import re
@@ -60,7 +58,6 @@ def test_dodaj_wspolczynniki_nie_zmienia_wejscia(agenci):
 
 
 def test_m_pop(agenci):
-    # Drugie pokolenie bez żadnego dylematu.
     bez_dylematow = agenci.assign(pokolenie=1, S=0, K=0, N_o=0, D=0)
     dane = pd.concat([agenci, bez_dylematow], ignore_index=True)
 
@@ -82,15 +79,14 @@ def test_podsumuj_D():
     assert wszyscy["liczba"] == 4
     assert wszyscy["odsetek_D0"] == pytest.approx(0.25)
     assert wszyscy["odsetek_ponizej_Dmin"] == pytest.approx(0.75)
-    # kwartyle z interpolacją liniową (domyślna w pandas) dla 0, 1, 4, 10
+    # interpolacja liniowa (domyślna w pandas)
     assert wszyscy[["Q1", "mediana", "Q3"]].tolist() == pytest.approx([0.75, 2.5, 5.5])
     assert wynik.loc["zmarli", "mediana"] == pytest.approx(0.5)
     assert wynik.loc["dożyli końca", "odsetek_ponizej_Dmin"] == pytest.approx(0.5)
 
 
 def test_rozrzut_M_wg_D_szum():
-    # Jeden agent z jednym dzieleniem, drugi z jedną kradzieżą: p_s = p_k = 0,5,
-    # więc wariancja jednej decyzji = (0,5 + 0,5) − 0² = 1, a szum przy D = 1 to 1.
+    # jedno dzielenie i jedna kradzież: p_s = p_k = 0,5 → Var = 1, szum przy D = 1 to 1
     agenci = eksploracja.dodaj_wspolczynniki(
         pd.DataFrame({"S": [1, 0], "K": [0, 1], "N_o": [0, 0], "D": [1, 1]}), a=2.0
     )
@@ -136,7 +132,7 @@ def test_statystyki_opisowe_krok_smierci_tylko_zmarlych(agenci):
 
 
 def test_statystyki_pierwsze_ostatnie(agenci):
-    # Ten sam zestaw agentów w pokoleniu 0 i 1, ale w pokoleniu 1 z większym D.
+    # pokolenie 1 = pokolenie 0 z D większym o 2
     pierwsze = agenci.assign(alfa=0.85, zasoby_koniec=1.0, krok_smierci=300, przyczyna_smierci=2)
     ostatnie = pierwsze.assign(pokolenie=1, N_o=pierwsze["N_o"] + 2, D=pierwsze["D"] + 2)
     dane = eksploracja.dodaj_wspolczynniki(pd.concat([pierwsze, ostatnie], ignore_index=True), a=2.0)
@@ -195,7 +191,7 @@ def test_przebieg_w_pokoleniach_liczy_ziarna():
 
 
 def test_udzialy_akcji_w_pokoleniach():
-    # Dwa ziarna jednego pokolenia: najpierw sumujemy zliczenia, potem dzielimy.
+    # dwa ziarna: najpierw suma zliczeń, potem dzielenie
     zliczenia = {f"akcja_{kod}": [0, 0] for kod in range(8)}
     zliczenia["akcja_0"] = [2, 0]  # ruch
     zliczenia["akcja_4"] = [2, 4]  # zbierz
@@ -268,6 +264,7 @@ x = 2.0
 [siec]
 tryb = "softmax"
 tau = 1.0
+h = 0
 [ewolucja]
 T = 5.0
 E0 = 10.0
@@ -304,11 +301,10 @@ def test_udzialy_akcji_krok0_sumuja_sie_do_1(tmp_path):
     wynik = eksploracja.udzialy_akcji_krok0(wyniki, ["P1_z1"])
     assert len(wynik) == 8
     assert wynik.sum() == pytest.approx(1.0)
-    assert (wynik > 0).all()  # softmax daje każdej akcji dodatnie prawdopodobieństwo
+    assert (wynik > 0).all()  # softmax – każda akcja > 0
 
 
 def test_main_tworzy_tabele_i_wykresy(tmp_path):
-    """Mały pilotaż (P1 i dwie wartości α w P2) → cały skrypt → wszystkie pliki."""
     wyniki = _maly_pilotaz(tmp_path)
 
     wyjscie = tmp_path / "analiza"

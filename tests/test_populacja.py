@@ -1,5 +1,4 @@
-"""Testy modułu populacja.py – testy minimalne na Lab02 (instrukcja, krok 2).
-"""
+"""Testy populacja.py."""
 import numpy as np
 import pytest
 
@@ -12,14 +11,12 @@ H, W = 3, 4
 
 @pytest.fixture
 def stan():
-    """Plansza 3×4 z dwoma agentami ustawionymi ręcznie (pojemność wszędzie 4.0).
+    """Plansza 3×4, pojemność 4.0, dwóch agentów (A0 = 2.0, A1 = 6.0):
 
             kol 0   kol 1   kol 2   kol 3
       w 0    0.0    [A0]v    2.0     3.0     A0 na (0, 1), pod nim 1.0, patrzy na S
       w 1    4.0    [A1]<    1.5     2.5     A1 na (1, 1), pod nim 0.5, patrzy na W
       w 2    3.5     2.2     1.0     2.0
-
-    Zasoby agentów: A0 = 2.0, A1 = 6.0.
     """
     s = pusty_stan(H=H, W=W, N=2, L=48)
     s.pojemnosc = np.full((H, W), 4.0)
@@ -34,32 +31,30 @@ def stan():
     s.zajetosc[1, 1] = 1
     s.zywy[:] = True
     s.zasoby_agentow[:] = [2.0, 6.0]
-    sprawdz_niezmienniki(s)  # sam stan testowy też musi być poprawny
+    sprawdz_niezmienniki(s)
     return s
 
 
 # --- obserwacje ----------------------------------------------------------------------
 
 def test_obserwacje_agenta_zwroconego_do_sasiada(stan):
-    # wykonaj
     obs, przed = populacja.obserwacje(stan, skala=4.0)
 
-    # sprawdź kształt i typ
     assert obs.shape == (2, 5)
     assert obs.dtype == np.float64
 
-    # A0 patrzy na południe, czyli na A1: [własne, pod sobą, przed sobą, obecność, zasoby A1]
+    # A0 patrzy na A1: [własne, pod sobą, przed sobą, obecność, zasoby A1]
     assert przed[0] == 1
     np.testing.assert_allclose(obs[0], [2.0 / 4, 1.0 / 4, 0.5 / 4, 1.0, 6.0 / 4])
 
-    # A1 patrzy na zachód, na puste pole (1, 0) z zasobem 4.0 – nikogo przed nim
+    # A1 patrzy na puste pole (1, 0)
     assert przed[1] == PUSTE
     np.testing.assert_allclose(obs[1], [6.0 / 4, 0.5 / 4, 4.0 / 4, 0.0, 0.0])
 
 
 # --- rozmiesc_losowo -----------------------------------------------------------------
 
-@pytest.mark.parametrize("N", [5, H * W])   # zwykły przypadek i plansza zajęta w całości
+@pytest.mark.parametrize("N", [5, H * W])   # też pełna plansza
 def test_rozmiesc_losowo_bez_kolizji(N):
     s = pusty_stan(H=H, W=W, N=N, L=48)
     rng = np.random.default_rng(1)
@@ -75,7 +70,7 @@ def test_ruch_w_sciane_i_na_zajete_pole(stan):
     assert stan.kierunki[0] == POLNOC
     assert tuple(stan.pozycje[0]) == (0, 1)
 
-    assert not populacja.ruch(stan, 1, POLNOC)          # pole zajęte przez A0
+    assert not populacja.ruch(stan, 1, POLNOC)          # zajęte przez A0
     assert stan.kierunki[1] == POLNOC
     assert tuple(stan.pozycje[1]) == (1, 1)
 
@@ -105,12 +100,11 @@ def test_usun_martwych_czysci_zajetosc_i_zostawia_zywych(stan):
 
 
 def test_usun_martwych_pomija_juz_martwego_agenta(stan):
-    # A0 umiera, a A1 wchodzi na jego dawne pole (0, 1). Pozycja A0 w tablicy
-    # jest już nieaktualna, ale nadal wskazuje (0, 1).
+    # A0 umiera, A1 wchodzi na jego pole; pozycja A0 nadal wskazuje (0, 1)
     populacja.usun_martwych(stan, np.array([True, False]))
     assert populacja.ruch(stan, 1, POLNOC)
 
-    # Ponowne usunięcie A0 nie może zdjąć z mapy żywego A1.
+    # ponowne usunięcie A0 nie może zdjąć A1
     populacja.usun_martwych(stan, np.array([True, False]))
 
     assert stan.zajetosc[0, 1] == 1
@@ -121,9 +115,7 @@ def test_usun_martwych_pomija_juz_martwego_agenta(stan):
 # --- obserwacje przy ścianie ---------------------------------------------------------
 
 def test_obserwacje_przy_scianie(stan):
-    # A0 patrzy w ścianę: pole przed nim to (−1, 1). Test łapie pułapkę z indeksem −1:
-    # wiersz −1 to w NumPy wiersz 2, a pole (2, 1) ma zasób 2.2 – błędna
-    # implementacja zwróci 2.2 / 4 zamiast 0.
+    # pułapka: wiersz −1 to w NumPy wiersz 2 (zasób 2.2) – ma wyjść 0
     stan.kierunki[0] = POLNOC
     obs, przed = populacja.obserwacje(stan, skala=4.0)
     assert przed[0] == PUSTE

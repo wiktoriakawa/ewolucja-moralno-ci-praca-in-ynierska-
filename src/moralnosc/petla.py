@@ -116,7 +116,7 @@ def krok(
         zasoby_start = stan.zasoby_agentow.copy()
         dylemat = status_dylematu(stan, przed, zasoby_start, cfg["koszty"]["s"])
 
-    y = wyjscia(obs, stan.genomy)
+    y = wyjscia(obs, stan.genomy, cfg["siec"]["h"])
     akcje = wybierz_akcje(y, cfg["siec"]["tryb"], cfg["siec"]["tau"], rng)
 
     zywi = np.flatnonzero(stan.zywy)
