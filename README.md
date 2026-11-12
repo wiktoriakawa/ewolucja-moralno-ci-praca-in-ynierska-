@@ -1,5 +1,7 @@
 # Ewolucja moralności sztucznego społeczeństwa
 
+[![Testy](https://github.com/wiktoriakawa/ewolucja-moralnosci-praca-inzynierska/actions/workflows/testy.yml/badge.svg)](https://github.com/wiktoriakawa/ewolucja-moralnosci-praca-inzynierska/actions/workflows/testy.yml)
+
 Projekt pracy inżynierskiej dotyczący symulacji ewolucji zachowań
 prospołecznych i egoistycznych w populacji agentów.
 
@@ -42,7 +44,7 @@ Najważniejsze elementy planowane w KM3:
 
 ## Wymagania
 
-- Python 3.11 lub nowszy;
+- Python 3.12 lub nowszy;
 - NumPy;
 - pandas do kontroli jakości i analizy danych;
 - Matplotlib do tworzenia wykresów;
@@ -122,6 +124,11 @@ Linux:
 ```bash
 PYTHONPATH=src python -m pytest -q
 ```
+
+Pełny zestaw testów jest również uruchamiany automatycznie przez GitHub Actions
+dla pull requestów do `main` i po każdym pushu do `main`. Workflow sprawdza
+projekt na Pythonie 3.12 oraz 3.14; można go też uruchomić ręcznie z zakładki
+**Actions** na GitHubie.
 
 ## Struktura repozytorium
 
