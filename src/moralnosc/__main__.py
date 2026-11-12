@@ -2,8 +2,9 @@
 
 import argparse
 from pathlib import Path
+import sys
 
-from moralnosc.konfiguracja import wczytaj_konfiguracje
+from moralnosc.konfiguracja import BladKonfiguracji, wczytaj_konfiguracje
 from moralnosc.petla import uruchom_przebieg
 from moralnosc.zapis import przygotuj_zapis
 
@@ -24,7 +25,12 @@ def utworz_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     """Obsługuje argumenty, uruchamia przebieg i zapisuje jego wyniki."""
     argumenty = utworz_parser().parse_args(argv)
-    cfg = wczytaj_konfiguracje(argumenty.konfiguracja)
+    try:
+        cfg = wczytaj_konfiguracje(argumenty.konfiguracja)
+    except (BladKonfiguracji, OSError) as blad:
+        print(f"Blad konfiguracji: {blad}", file=sys.stderr)
+        return 2
+
     callback = przygotuj_zapis(cfg)
     stan = uruchom_przebieg(cfg, po_pokoleniu=callback)
 
