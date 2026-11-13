@@ -35,6 +35,8 @@ def _stan_i_pomiar():
     pomiar.K[:] = [0, 1]
     pomiar.N_o[:] = [2, 3]
     pomiar.D[:] = [3, 4]
+    pomiar.liczba_otrzymanych_darow[:] = [0, 1]
+    pomiar.wartosc_otrzymanych_darow[:] = [0.0, 1.0]
     pomiar.krok_smierci[:] = 3
     pomiar.przyczyna_smierci[:] = PRZYCZYNA_KONIEC_POKOLENIA
     pomiar.akcje_licznik[:] = np.arange(8)
@@ -110,6 +112,10 @@ def test_callback_zapisuje_poprawne_dane_pokolenia(tmp_path):
     assert agenci[1]["id"] == "20"
     assert agenci[1]["kwalifikacja"] == "False"
     assert agenci[1]["K"] == "1"
+    assert agenci[1]["liczba_otrzymanych_darow"] == "1"
+    assert agenci[1]["wartosc_otrzymanych_darow"] == "1.0"
+    assert agenci[1]["liczba_kradziezy_jako_ofiara"] == "0"
+    assert agenci[1]["wartosc_kradziezy_jako_ofiara"] == "0.0"
 
     dylematy = _wczytaj_csv(tmp_path / "dylematy.csv")
     assert len(dylematy) == 1

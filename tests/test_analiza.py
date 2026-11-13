@@ -54,6 +54,10 @@ def _tabele():
                 "K": 0,
                 "N_o": 0,
                 "D": 1,
+                "liczba_otrzymanych_darow": 0,
+                "wartosc_otrzymanych_darow": 0.0,
+                "liczba_kradziezy_jako_ofiara": 0,
+                "wartosc_kradziezy_jako_ofiara": 0.0,
                 "zasoby_koniec": 2.0,
                 "kwalifikacja": True,
                 "krok_smierci": 2,
@@ -67,6 +71,10 @@ def _tabele():
                 "K": 0,
                 "N_o": 0,
                 "D": 0,
+                "liczba_otrzymanych_darow": 1,
+                "wartosc_otrzymanych_darow": 1.0,
+                "liczba_kradziezy_jako_ofiara": 0,
+                "wartosc_kradziezy_jako_ofiara": 0.0,
                 "zasoby_koniec": -0.1,
                 "kwalifikacja": False,
                 "krok_smierci": 1,
@@ -140,6 +148,42 @@ def test_sprawdz_przebieg_wykrywa_niezgodne_sumy_pokolenia():
 
     kontrola = _kontrola(raport, "sumy_agentow_rowne_pokoleniom")
     assert kontrola["poprawna"] is False
+
+
+def test_sprawdz_przebieg_wykrywa_niezgodny_pomiar_otrzymanych_darow():
+    """Liczba i wartość darów odbiorcy muszą wynikać ze zdarzeń dzielenia."""
+    pokolenia, agenci, dylematy = _tabele()
+    agenci.loc[1, "wartosc_otrzymanych_darow"] = 2.0
+
+    raport = sprawdz_przebieg(_konfiguracja(), pokolenia, agenci, dylematy)
+
+    kontrola = _kontrola(raport, "otrzymane_dary_zgodne_ze_zdarzeniami")
+    assert kontrola["poprawna"] is False
+
+
+def test_sprawdz_przebieg_wykrywa_niezgodny_pomiar_ofiary_kradziezy():
+    """Strata ofiary musi odpowiadać udanej kradzieży skierowanej do niej."""
+    pokolenia, agenci, dylematy = _tabele()
+    dylematy.loc[0, ["akcja", "klasa"]] = [6, "kradziez"]
+    agenci.loc[1, ["liczba_otrzymanych_darow", "wartosc_otrzymanych_darow"]] = [
+        0,
+        0.0,
+    ]
+
+    raport = sprawdz_przebieg(_konfiguracja(), pokolenia, agenci, dylematy)
+
+    kontrola = _kontrola(raport, "kradzieze_ofiar_zgodne_ze_zdarzeniami")
+    assert kontrola["poprawna"] is False
+
+
+def test_sprawdz_przebieg_wykrywa_ujemny_licznik_transferow():
+    """Liczniki i wartości transferów nie mogą być ujemne."""
+    pokolenia, agenci, dylematy = _tabele()
+    agenci.loc[0, "liczba_kradziezy_jako_ofiara"] = -1
+
+    raport = sprawdz_przebieg(_konfiguracja(), pokolenia, agenci, dylematy)
+
+    assert _kontrola(raport, "nieujemne_transfery")["poprawna"] is False
 
 
 def test_sprawdz_przebieg_wykrywa_kwalifikacje_zmarlego():

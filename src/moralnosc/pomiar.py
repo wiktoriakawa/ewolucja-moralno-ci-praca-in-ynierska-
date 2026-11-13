@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
 
-from moralnosc.stan import DZIEL, KRADNIJ, LICZBA_AKCJI, PUSTE, Stan
+from moralnosc.stan import DZIEL, KRADNIJ, LICZBA_AKCJI, PUSTE, SUKCES, Stan
 
 
 PRZYCZYNA_ZYJE = 0
@@ -52,6 +52,12 @@ class Pomiar:
     N_o: NDArray[np.int64]
     D: NDArray[np.int64]  # N, liczba wszystkich napotkanych dylematów
 
+    # --- zasoby otrzymane lub utracone w interakcjach ---
+    liczba_otrzymanych_darow: NDArray[np.int64]
+    wartosc_otrzymanych_darow: NDArray[np.float64]
+    liczba_kradziezy_jako_ofiara: NDArray[np.int64]
+    wartosc_kradziezy_jako_ofiara: NDArray[np.float64]
+
     # --- zakończenie życia agentów w pokoleniu ---
     # Kroki są indeksowane od 0. Śmierć w K krokach ma numer 0…K−1, agent
     # dożywający końca pokolenia otrzymuje K, a brak wpisu ma wartość -1.
@@ -83,6 +89,10 @@ def pusty_pomiar(*, N: int) -> Pomiar:
         K=np.zeros(N, dtype=np.int64),
         N_o=np.zeros(N, dtype=np.int64),
         D=np.zeros(N, dtype=np.int64),
+        liczba_otrzymanych_darow=np.zeros(N, dtype=np.int64),
+        wartosc_otrzymanych_darow=np.zeros(N, dtype=np.float64),
+        liczba_kradziezy_jako_ofiara=np.zeros(N, dtype=np.int64),
+        wartosc_kradziezy_jako_ofiara=np.zeros(N, dtype=np.float64),
         krok_smierci=np.full(N, -1, dtype=np.int64),
         przyczyna_smierci=np.full(N, PRZYCZYNA_ZYJE, dtype=np.int64),
         akcje_licznik=np.zeros(LICZBA_AKCJI, dtype=np.int64),
@@ -123,12 +133,22 @@ def zarejestruj(
 ) -> None:
     """Rejestruje intencję agenta oraz szczegóły decyzji w dylemacie.
 
-    Każda wybrana akcja zwiększa licznik zbiorczy. Jeżeli decyzja została
-    podjęta w dylemacie, funkcja zwiększa ``D`` i dokładnie jeden z liczników
-    ``S``, ``K`` lub ``N_o`` oraz zapisuje zdarzenie przeznaczone do
-    ``dylematy.csv``. Zasoby w zdarzeniu pochodzą z początku kroku.
+    Każda wybrana akcja zwiększa licznik zbiorczy. Udane dzielenie zapisuje
+    zasoby otrzymane przez cel, a udana kradzież zasoby utracone przez ofiarę.
+    Jeżeli decyzja została podjęta w dylemacie, funkcja zwiększa ``D`` i
+    dokładnie jeden z liczników ``S``, ``K`` lub ``N_o`` oraz zapisuje
+    zdarzenie przeznaczone do ``dylematy.csv``. Zasoby w zdarzeniu pochodzą
+    z początku kroku.
     """
     pomiar.akcje_licznik[akcja] += 1
+    if wynik == SUKCES and j != PUSTE:
+        if akcja == DZIEL:
+            pomiar.liczba_otrzymanych_darow[j] += 1
+            pomiar.wartosc_otrzymanych_darow[j] += kwota
+        elif akcja == KRADNIJ:
+            pomiar.liczba_kradziezy_jako_ofiara[j] += 1
+            pomiar.wartosc_kradziezy_jako_ofiara[j] += kwota
+
     if not dylemat_i:
         return
 
