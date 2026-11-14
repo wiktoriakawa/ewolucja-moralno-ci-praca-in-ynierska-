@@ -277,6 +277,32 @@ def test_sprawdz_przebieg_wykrywa_zbyt_duza_kwote_kradziezy():
     assert _kontrola(raport, "kwota_kradziezy")["poprawna"] is False
 
 
+def test_sprawdz_przebieg_dopuszcza_udana_kradziez_z_kwota_zero():
+    """Udane losowanie może nic nie zabrać wcześniej opróżnionej ofierze."""
+    pokolenia, agenci, dylematy = _tabele()
+    pokolenia.loc[0, ["S", "K"]] = [0, 1]
+    agenci.loc[0, ["S", "K"]] = [0, 1]
+    agenci.loc[
+        1,
+        [
+            "liczba_otrzymanych_darow",
+            "wartosc_otrzymanych_darow",
+            "liczba_kradziezy_jako_ofiara",
+            "wartosc_kradziezy_jako_ofiara",
+        ],
+    ] = [0, 0.0, 1, 0.0]
+    dylematy.loc[0, ["akcja", "klasa", "wynik", "kwota"]] = [
+        6,
+        "kradziez",
+        "sukces",
+        0.0,
+    ]
+
+    raport = sprawdz_przebieg(_konfiguracja(), pokolenia, agenci, dylematy)
+
+    assert all(kontrola["poprawna"] for kontrola in raport)
+
+
 def test_sprawdz_przebieg_wykrywa_kwote_niewykonanej_akcji():
     """Niewykonana akcja nie może przenosić zasobów."""
     pokolenia, agenci, dylematy = _tabele()

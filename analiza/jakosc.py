@@ -469,7 +469,12 @@ def sprawdz_przebieg(
     kwota_w_zakresie = kwoty_kradziezy.ge(0) & kwoty_kradziezy.le(
         maksymalna_kradziez
     )
-    kwota_zgodna_z_wynikiem = kwoty_kradziezy.gt(0).eq(sukces_kradziezy)
+    # Sukces oznacza pomyślne losowanie, ale ofiara może nie mieć już zasobów,
+    # jeśli wcześniej w tym samym kroku opróżnił ją inny agent. Dlatego sukces
+    # może przenieść 0, natomiast wynik inny niż sukces musi mieć kwotę 0.
+    kwota_zgodna_z_wynikiem = sukces_kradziezy | np.isclose(
+        kwoty_kradziezy, 0.0
+    )
     poprawne_kradzieze = kwota_w_zakresie & kwota_zgodna_z_wynikiem
     wyniki.append(
         _wynik_kontroli(
