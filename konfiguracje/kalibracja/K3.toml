@@ -1,0 +1,68 @@
+# K3: kalibracja mutacji – prawdopodobieństwo r i siła sigma (issue #30).
+# Jedna seria = konfiguracja bazowa + zmiany wspólne + wariant × ziarno.
+
+[seria]
+nazwa = "K3"
+# Pytanie: czy mutacja utrzymuje różnorodność genomów, nie niszcząc odziedziczonych
+# strategii? Kryteria wyboru: plan_kalibracji.md, sekcja 3.
+bazowa = "konfiguracje/bazowa.toml"
+katalog = "wyniki/K3"
+ziarna = [601, 602, 603]
+
+[stale]
+"siec.h" = 8
+"przebieg.pokolenia" = 50
+# Do podmiany przed uruchomieniem: skala i tau – wybór z K1, T i alfa – wybór z K2
+# (teraz wartości bazowe).
+"obserwacje.skala" = 5.0
+"siec.tau" = 1.0
+"ewolucja.T" = 50.0
+"zasoby.alfa" = 1.0
+
+# 3 wartości r × 3 wartości sigma = 9 wariantów, czyli 27 przebiegów.
+# r = 0,5/L, 1/L i 3/L dla L = 120 (h = 8); 1/L to to samo co r = "auto".
+
+[[warianty]]
+nazwa = "r0.5L_sg0.1"
+"ewolucja.r" = 0.004166666666666667
+"ewolucja.sigma" = 0.1
+
+[[warianty]]
+nazwa = "r0.5L_sg0.2"
+"ewolucja.r" = 0.004166666666666667
+"ewolucja.sigma" = 0.2
+
+[[warianty]]
+nazwa = "r0.5L_sg0.4"
+"ewolucja.r" = 0.004166666666666667
+"ewolucja.sigma" = 0.4
+
+[[warianty]]
+nazwa = "r1L_sg0.1"
+"ewolucja.r" = 0.008333333333333333
+"ewolucja.sigma" = 0.1
+
+[[warianty]]
+nazwa = "r1L_sg0.2"
+"ewolucja.r" = 0.008333333333333333
+"ewolucja.sigma" = 0.2
+
+[[warianty]]
+nazwa = "r1L_sg0.4"
+"ewolucja.r" = 0.008333333333333333
+"ewolucja.sigma" = 0.4
+
+[[warianty]]
+nazwa = "r3L_sg0.1"
+"ewolucja.r" = 0.025
+"ewolucja.sigma" = 0.1
+
+[[warianty]]
+nazwa = "r3L_sg0.2"
+"ewolucja.r" = 0.025
+"ewolucja.sigma" = 0.2
+
+[[warianty]]
+nazwa = "r3L_sg0.4"
+"ewolucja.r" = 0.025
+"ewolucja.sigma" = 0.4
