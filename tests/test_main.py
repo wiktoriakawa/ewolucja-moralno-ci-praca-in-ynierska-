@@ -93,3 +93,41 @@ def test_main_czytelnie_konczy_program_dla_blednej_konfiguracji(
     assert wynik.out == ""
     assert "siec.h" in wynik.err
     assert "Traceback" not in wynik.err
+
+
+def test_main_uruchamia_serie_i_zwraca_blad_gdy_jeden_przebieg_sie_nie_udaje(
+    tmp_path, monkeypatch, capsys
+):
+    """Polecenie seria raportuje wszystkie statusy i zwraca kod 1 po błędzie przebiegu."""
+    definicja_toml = tmp_path / "seria.toml"
+    definicja_toml.write_text(
+        """
+[seria]
+nazwa = "test"
+bazowa = "bazowa.toml"
+katalog = "wyniki"
+ziarna = [1]
+
+[[warianty]]
+nazwa = "wariant"
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        cli,
+        "wykonaj_serie",
+        lambda _definicja: [
+            {
+                "id": "test_wariant_z1",
+                "status": "blad",
+                "blad": "RuntimeError: awaria",
+            }
+        ],
+    )
+
+    kod_wyjscia = main(["seria", str(definicja_toml)])
+
+    wynik = capsys.readouterr()
+    assert kod_wyjscia == 1
+    assert "test_wariant_z1: blad" in wynik.out
+    assert "RuntimeError: awaria" in wynik.out
