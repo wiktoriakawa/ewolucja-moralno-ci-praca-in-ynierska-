@@ -1,0 +1,41 @@
+# K4: kalibracja promienia narodzin R (issue #30).
+# Jedna seria = konfiguracja bazowa + zmiany wspólne + wariant × ziarno.
+
+[seria]
+nazwa = "K4"
+# Pytanie: jak lokalność narodzin wpływa na pokrewieństwo sąsiadów, kontakty
+# i odziedziczalność zachowania? Kryteria wyboru: plan_kalibracji.md, sekcja 3.
+bazowa = "konfiguracje/bazowa.toml"
+katalog = "wyniki/K4"
+ziarna = [701, 702, 703]
+
+[stale]
+"siec.h" = 8
+"przebieg.pokolenia" = 50
+# Do podmiany przed uruchomieniem: skala i tau – z K1, T i alfa – z K2, r i sigma – z K3
+# (teraz wartości bazowe).
+"obserwacje.skala" = 5.0
+"siec.tau" = 1.0
+"ewolucja.T" = 50.0
+"zasoby.alfa" = 1.0
+"ewolucja.r" = "auto"
+"ewolucja.sigma" = 0.2
+
+# 4 promienie = 4 warianty, czyli 12 przebiegów. R = 2 to wartość bazowa (D12);
+# R = 63 obejmuje całą planszę 64×64 z każdego pola (narodziny globalne).
+
+[[warianty]]
+nazwa = "R1"
+"ewolucja.R" = 1
+
+[[warianty]]
+nazwa = "R2"
+"ewolucja.R" = 2
+
+[[warianty]]
+nazwa = "R5"
+"ewolucja.R" = 5
+
+[[warianty]]
+nazwa = "R63"
+"ewolucja.R" = 63
