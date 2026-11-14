@@ -40,19 +40,21 @@ Przebieg, w którym wymarła populacja, liczy się jako „wymarcie” i wchodzi
 
 Każdy przebieg przed analizą przechodzi `analiza/jakosc.py` (po #26 – z kontrolą nowych kolumn); dwa przebiegi z tym samym ziarnem w K5 muszą dać identyczne CSV (NF-03, `--porownaj`). Przebiegi niezaliczone są wyłączane i wymienione w dodatku B.
 
-## 7. Szacunek kosztu (pomiar 11.11.2026, Mac, Python 3.14.5, konfiguracja bazowa, α = 1,0)
+## 7. Koszt (pomiary z 11.11.2026 i z serii K1 14.11.2026; Mac, Python 3.14.5, NumPy 2.5.4)
 
-Czas na pokolenie: **h = 0 – ok. 0,22 s, h = 8 – ok. 0,33 s** (różnica czasu przebiegów 10 i 3 pokoleń, po 3 powtórzenia, więc bez kosztu uruchomienia Pythona; przebieg 3 pokoleń h = 8 to ok. 1 s łącznie). Dane: ok. 0,5 MB na pokolenie (pomiar przy h = 0; rozmiar zależy od zachowania agentów, nie od h – plik `dylematy.csv` przy α ≥ 1 jest największy, prawie każdy krok przed sąsiadem to wiersz). Szacunki niżej przy h = 8:
+Czas na pokolenie: pomiar 11.11 (konfiguracja bazowa, α = 1,0, różnica czasu przebiegów 10 i 3 pokoleń) – h = 0 ok. 0,22 s, h = 8 ok. 0,33 s. Seria K1 (27 przebiegów × 10 pokoleń, h = 8) trwała 44 s od startu pierwszego do końca ostatniego przebiegu, czyli ok. 0,16 s na pokolenie razem z zapisem. Czas zależy od zachowania agentów, więc do szacunków bierzemy ostrożnie 0,33 s.
 
-| Seria | Przebiegów × pokoleń | Czas (szacunek) | Dane (szacunek) |
+Dane: K1 zajęło 394 MB – średnio 14,6 MB na przebieg (7,9–24,7 MB zależnie od wariantu), czyli ok. 1,5 MB na pokolenie, trzy razy więcej niż szacunek z pomiaru przy h = 0 (0,5 MB). 99 % to `dylematy.csv` (wiersz na każdy krok agenta przed sąsiadem). Szacunki niżej przy h = 8: 0,33 s i 1,5 MB na pokolenie.
+
+| Seria | Przebiegów × pokoleń | Czas | Dane |
 |---|---|---|---|
-| K1 | 27 × 10 | ok. 1,5 min | ok. 150 MB |
-| K1b | 12 × 10 | ok. 1 min (h = 16 niemierzone) | ok. 60 MB |
-| K3 | 27 × 50 | ok. 7,5 min | do 700 MB (mniej przy α = 0,85) |
-| K4 | 12 × 50 | ok. 3,5 min | do 300 MB |
-| K5 | 1 × 500 (×2) | ok. 3 min (×2) | ok. 250 MB (×2) |
+| K1 | 27 × 10 | 44 s (pomiar) | 394 MB (pomiar) |
+| K1b | 12 × 10 | ok. 1 min (h = 16 niemierzone) | ok. 180 MB |
+| K3 | 27 × 50 | ok. 7,5 min | ok. 2,0 GB |
+| K4 | 12 × 50 | ok. 3,5 min | ok. 0,9 GB |
+| K5 | 1 × 500 (×2) | ok. 3 min (×2) | ok. 0,75 GB (×2) – blisko NF-07 (≤ 1 GB na przebieg) |
 
-Wszystko mieści się w jednym wieczorze; wąskim gardłem jest analiza i opis, nie obliczenia.
+K1, K3 i K4 razem to ok. 12 min obliczeń i ok. 3,3 GB danych w `wyniki/` (poza Gitem) – mieści się w jednym wieczorze i na dysku; wąskim gardłem jest analiza i opis, nie obliczenia.
 
 ## 8. Wykonanie
 
