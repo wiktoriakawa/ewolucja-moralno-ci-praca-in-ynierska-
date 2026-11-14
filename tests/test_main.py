@@ -2,7 +2,11 @@
 
 import json
 
-from moralnosc.__main__ import main
+from moralnosc import __main__ as cli
+from moralnosc.konfiguracja import BladKonfiguracji
+
+
+main = cli.main
 
 
 def test_main_uruchamia_przebieg_i_zapisuje_wyniki(tmp_path):
@@ -71,3 +75,21 @@ katalog = "{katalog_wynikow.as_posix()}"
         zapisana_konfiguracja = json.load(plik)["konfiguracja"]
     assert zapisana_konfiguracja["przebieg"]["ziarno"] == 67
     assert zapisana_konfiguracja["przebieg"]["pokolenia"] == 2
+
+
+def test_main_czytelnie_konczy_program_dla_blednej_konfiguracji(
+    tmp_path, monkeypatch, capsys
+):
+    """Błąd konfiguracji daje kod 2 i jedną wiadomość zamiast tracebacka."""
+    def zglos_blad(_sciezka):
+        raise BladKonfiguracji("siec.h: wartość musi być >= 0")
+
+    monkeypatch.setattr(cli, "wczytaj_konfiguracje", zglos_blad)
+
+    kod_wyjscia = main(["przebieg", str(tmp_path / "bledna.toml")])
+
+    wynik = capsys.readouterr()
+    assert kod_wyjscia == 2
+    assert wynik.out == ""
+    assert "siec.h" in wynik.err
+    assert "Traceback" not in wynik.err
