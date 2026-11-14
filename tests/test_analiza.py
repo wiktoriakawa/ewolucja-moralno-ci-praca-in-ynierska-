@@ -36,6 +36,7 @@ def _tabele():
                 "przezywalnosc": 0.5,
                 "zakwalifikowani": 1,
                 "awaryjny": False,
+                "roznorodnosc": 0.5,
                 "S": 1,
                 "K": 0,
                 "N_o": 0,
@@ -126,6 +127,17 @@ def test_sprawdz_przebieg_wykrywa_niezgodne_D():
     raport = sprawdz_przebieg(_konfiguracja(), pokolenia, agenci, dylematy)
 
     kontrola = _kontrola(raport, "S_plus_K_plus_N_o_rowne_D")
+    assert kontrola["poprawna"] is False
+
+
+def test_sprawdz_przebieg_wykrywa_ujemna_roznorodnosc():
+    """Różnorodność genetyczna nie może być liczbą ujemną."""
+    pokolenia, agenci, dylematy = _tabele()
+    pokolenia.loc[0, "roznorodnosc"] = -0.1
+
+    raport = sprawdz_przebieg(_konfiguracja(), pokolenia, agenci, dylematy)
+
+    kontrola = _kontrola(raport, "roznorodnosc_skonczona_i_nieujemna")
     assert kontrola["poprawna"] is False
 
 

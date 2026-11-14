@@ -30,7 +30,7 @@ def _stan_i_pomiar():
     stan.zywy[:] = True
     stan.zasoby_agentow[:] = [6.0, 4.0]
 
-    pomiar = pusty_pomiar(N=2)
+    pomiar = pusty_pomiar(N=2, roznorodnosc=2.5)
     pomiar.S[:] = [1, 0]
     pomiar.K[:] = [0, 1]
     pomiar.N_o[:] = [2, 3]
@@ -95,6 +95,7 @@ def test_callback_zapisuje_poprawne_dane_pokolenia(tmp_path):
         "przezywalnosc": "1.0",
         "zakwalifikowani": "1",
         "awaryjny": "False",
+        "roznorodnosc": "2.5",
         "S": "1",
         "K": "1",
         "N_o": "5",

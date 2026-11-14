@@ -88,6 +88,7 @@ def test_pusty_pomiar_ma_calkowite_typy_tablic(pomiar):
 
 def test_pusty_pomiar_ma_wlasciwe_wartosci_poczatkowe(pomiar):
     """Nowe pokolenie zaczyna bez decyzji, zdarzeń i zarejestrowanych śmierci."""
+    assert pomiar.roznorodnosc == 0.0
     assert np.all(pomiar.S == 0)
     assert np.all(pomiar.K == 0)
     assert np.all(pomiar.N_o == 0)
@@ -100,6 +101,13 @@ def test_pusty_pomiar_ma_wlasciwe_wartosci_poczatkowe(pomiar):
     assert np.all(pomiar.przyczyna_smierci == PRZYCZYNA_ZYJE)
     assert np.all(pomiar.akcje_licznik == 0)
     assert pomiar.zdarzenia == []
+
+
+def test_pusty_pomiar_zapisuje_roznorodnosc_poczatkowa():
+    """Pomiar przechowuje różnorodność obliczoną na początku pokolenia."""
+    pomiar = pusty_pomiar(N=N, roznorodnosc=1.25)
+
+    assert pomiar.roznorodnosc == 1.25
 
 
 def test_puste_pomiary_maja_niezalezne_listy_zdarzen():

@@ -180,6 +180,18 @@ def sprawdz_przebieg(
         _wynik_kontroli("brakujace_wartosci", brakujace == 0, str(brakujace))
     )
 
+    poprawna_roznorodnosc = (
+        np.isfinite(pokolenia["roznorodnosc"])
+        & pokolenia["roznorodnosc"].ge(0)
+    )
+    wyniki.append(
+        _wynik_kontroli(
+            "roznorodnosc_skonczona_i_nieujemna",
+            bool(poprawna_roznorodnosc.all()),
+            f"bledne_pokolenia={int((~poprawna_roznorodnosc).sum())}",
+        )
+    )
+
     rownanie_d = agenci["S"] + agenci["K"] + agenci["N_o"] == agenci["D"]
     wyniki.append(
         _wynik_kontroli(

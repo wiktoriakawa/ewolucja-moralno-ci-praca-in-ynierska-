@@ -45,6 +45,10 @@ class Pomiar:
     pól, a ``kw_only=True`` wymaga podawania pól konstruktora z nazwami.
     """
 
+    # --- dane całego pokolenia ---
+    # Średnia odległość euklidesowa między genomami na początku pokolenia.
+    roznorodnosc: float
+
     # --- decyzje agentów w sytuacjach dylematu ---
     S: NDArray[np.int64]  # N, liczba intencji dzielenia
     K: NDArray[np.int64]  # N, liczba intencji kradzieży
@@ -73,18 +77,20 @@ class Pomiar:
     zdarzenia: list[dict[str, object]] = field(repr=False)
 
 
-def pusty_pomiar(*, N: int) -> Pomiar:
+def pusty_pomiar(*, N: int, roznorodnosc: float = 0.0) -> Pomiar:
     """Tworzy pusty pomiar dla ``N`` agentów na początku pokolenia.
 
-    Liczniki decyzji, dylematów i akcji zaczynają się od zera. Krok śmierci
-    ma wartość ``-1``, ponieważ żaden agent jeszcze nie umarł, natomiast kod
-    przyczyny śmierci wynosi ``0``, czyli agent nadal żyje. Lista zdarzeń jest
-    tworzona od nowa przy każdym wywołaniu, więc pomiary różnych pokoleń nie
-    współdzielą wpisów.
+    Pole ``roznorodnosc`` przechowuje wartość obliczoną z genomów na początku
+    pokolenia. Liczniki decyzji, dylematów i akcji zaczynają się od zera. Krok
+    śmierci ma wartość ``-1``, ponieważ żaden agent jeszcze nie umarł, natomiast
+    kod przyczyny śmierci wynosi ``0``, czyli agent nadal żyje. Lista zdarzeń
+    jest tworzona od nowa przy każdym wywołaniu, więc pomiary różnych pokoleń
+    nie współdzielą wpisów.
 
     Funkcja niczego nie losuje i nie modyfikuje obiektu ``Stan``.
     """
     return Pomiar(
+        roznorodnosc=float(roznorodnosc),
         S=np.zeros(N, dtype=np.int64),
         K=np.zeros(N, dtype=np.int64),
         N_o=np.zeros(N, dtype=np.int64),
