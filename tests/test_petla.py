@@ -352,6 +352,7 @@ def test_wykonaj_pokolenie_konczy_sie_po_wymarciu(cfg_przebiegu):
     cfg_przebiegu["przebieg"]["kroki"] = 5
     rng = np.random.default_rng(cfg_przebiegu["przebieg"]["ziarno"])
     stan = ewolucja.pokolenie_zerowe(cfg_przebiegu, rng)
+    oczekiwana_roznorodnosc = ewolucja.roznorodnosc(stan.genomy)
 
     pomiar, maska, awaryjny, przetrwal = petla.wykonaj_pokolenie(
         stan, cfg_przebiegu, rng
@@ -362,6 +363,7 @@ def test_wykonaj_pokolenie_konczy_sie_po_wymarciu(cfg_przebiegu):
     assert not maska.any()
     assert stan.krok == 1
     assert not stan.zywy.any()
+    assert pomiar.roznorodnosc == pytest.approx(oczekiwana_roznorodnosc)
     assert pomiar.akcje_licznik.sum() == cfg_przebiegu["populacja"]["N"]
     np.testing.assert_array_equal(pomiar.krok_smierci, [0, 0])
     np.testing.assert_array_equal(
@@ -384,6 +386,8 @@ def test_uruchom_przebieg_wykonuje_pokolenia_i_callback(cfg_przebiegu):
                 "przyczyny": pomiar.przyczyna_smierci.copy(),
                 "rodzice": int(maska.sum()),
                 "awaryjny": awaryjny,
+                "roznorodnosc": pomiar.roznorodnosc,
+                "oczekiwana_roznorodnosc": ewolucja.roznorodnosc(stan.genomy),
             }
         )
 
@@ -394,6 +398,10 @@ def test_uruchom_przebieg_wykonuje_pokolenia_i_callback(cfg_przebiegu):
     assert [m["akcje"] for m in migawki] == [4, 4, 4]
     assert [m["rodzice"] for m in migawki] == [2, 2, 2]
     assert [m["awaryjny"] for m in migawki] == [False, False, False]
+    for migawka in migawki:
+        assert migawka["roznorodnosc"] == pytest.approx(
+            migawka["oczekiwana_roznorodnosc"]
+        )
     np.testing.assert_array_equal(migawki[0]["ids"], [0, 1])
     np.testing.assert_array_equal(migawki[1]["ids"], [2, 3])
     np.testing.assert_array_equal(migawki[2]["ids"], [4, 5])

@@ -21,6 +21,7 @@ KOLUMNY_POKOLENIA = (
     "przezywalnosc",
     "zakwalifikowani",
     "awaryjny",
+    "roznorodnosc",
     "S",
     "K",
     "N_o",
@@ -36,6 +37,10 @@ KOLUMNY_AGENCI = (
     "K",
     "N_o",
     "D",
+    "liczba_otrzymanych_darow",
+    "wartosc_otrzymanych_darow",
+    "liczba_kradziezy_jako_ofiara",
+    "wartosc_kradziezy_jako_ofiara",
     "zasoby_koniec",
     "kwalifikacja",
     "krok_smierci",
@@ -123,6 +128,7 @@ def zapisz_pokolenie(
         "przezywalnosc": zywi_koniec / liczba_agentow,
         "zakwalifikowani": int(kwalifikacja.sum()),
         "awaryjny": awaryjny,
+        "roznorodnosc": pomiar.roznorodnosc,
         "S": int(pomiar.S.sum()),
         "K": int(pomiar.K.sum()),
         "N_o": int(pomiar.N_o.sum()),
@@ -146,6 +152,18 @@ def zapisz_pokolenie(
             "K": int(pomiar.K[i]),
             "N_o": int(pomiar.N_o[i]),
             "D": int(pomiar.D[i]),
+            "liczba_otrzymanych_darow": int(
+                pomiar.liczba_otrzymanych_darow[i]
+            ),
+            "wartosc_otrzymanych_darow": float(
+                pomiar.wartosc_otrzymanych_darow[i]
+            ),
+            "liczba_kradziezy_jako_ofiara": int(
+                pomiar.liczba_kradziezy_jako_ofiara[i]
+            ),
+            "wartosc_kradziezy_jako_ofiara": float(
+                pomiar.wartosc_kradziezy_jako_ofiara[i]
+            ),
             "zasoby_koniec": float(stan.zasoby_agentow[i]),
             "kwalifikacja": bool(kwalifikacja[i]),
             "krok_smierci": int(pomiar.krok_smierci[i]),

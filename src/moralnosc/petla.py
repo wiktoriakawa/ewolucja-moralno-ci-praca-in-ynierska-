@@ -5,7 +5,12 @@ from collections.abc import Callable
 import numpy as np
 from numpy.typing import NDArray
 
-from moralnosc.ewolucja import kwalifikacja, nowe_pokolenie, pokolenie_zerowe
+from moralnosc.ewolucja import (
+    kwalifikacja,
+    nowe_pokolenie,
+    pokolenie_zerowe,
+    roznorodnosc as oblicz_roznorodnosc,
+)
 from moralnosc.interakcje import nalicz_koszty, wykonaj_dzielenie, wykonaj_kradziez
 from moralnosc.pomiar import (
     PRZYCZYNA_KONIEC_POKOLENIA,
@@ -163,7 +168,10 @@ def wykonaj_pokolenie(
     ``False``.
     """
     stan.krok = 0
-    pomiar = pusty_pomiar(N=stan.zywy.size)
+    pomiar = pusty_pomiar(
+        N=stan.zywy.size,
+        roznorodnosc=oblicz_roznorodnosc(stan.genomy),
+    )
 
     for _ in range(cfg["przebieg"]["kroki"]):
         if not krok(stan, cfg, rng, pomiar=pomiar):

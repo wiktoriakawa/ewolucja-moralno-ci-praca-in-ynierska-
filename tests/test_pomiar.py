@@ -19,8 +19,11 @@ from moralnosc.stan import (
     KRADNIJ,
     LICZBA_AKCJI,
     NIC,
+    NIEWYKONANA,
+    PORAZKA,
     PUSTE,
     SUKCES,
+    WYKONANA,
     pusty_stan,
 )
 
@@ -52,6 +55,10 @@ def test_pusty_pomiar_ma_wlasciwe_ksztalty(pomiar):
         pomiar.K,
         pomiar.N_o,
         pomiar.D,
+        pomiar.liczba_otrzymanych_darow,
+        pomiar.wartosc_otrzymanych_darow,
+        pomiar.liczba_kradziezy_jako_ofiara,
+        pomiar.wartosc_kradziezy_jako_ofiara,
         pomiar.krok_smierci,
         pomiar.przyczyna_smierci,
     ):
@@ -67,23 +74,40 @@ def test_pusty_pomiar_ma_calkowite_typy_tablic(pomiar):
         pomiar.K,
         pomiar.N_o,
         pomiar.D,
+        pomiar.liczba_otrzymanych_darow,
+        pomiar.liczba_kradziezy_jako_ofiara,
         pomiar.krok_smierci,
         pomiar.przyczyna_smierci,
         pomiar.akcje_licznik,
     ):
         assert tablica.dtype == np.int64
 
+    assert pomiar.wartosc_otrzymanych_darow.dtype == np.float64
+    assert pomiar.wartosc_kradziezy_jako_ofiara.dtype == np.float64
+
 
 def test_pusty_pomiar_ma_wlasciwe_wartosci_poczatkowe(pomiar):
     """Nowe pokolenie zaczyna bez decyzji, zdarzeń i zarejestrowanych śmierci."""
+    assert pomiar.roznorodnosc == 0.0
     assert np.all(pomiar.S == 0)
     assert np.all(pomiar.K == 0)
     assert np.all(pomiar.N_o == 0)
     assert np.all(pomiar.D == 0)
+    assert np.all(pomiar.liczba_otrzymanych_darow == 0)
+    assert np.all(pomiar.wartosc_otrzymanych_darow == 0.0)
+    assert np.all(pomiar.liczba_kradziezy_jako_ofiara == 0)
+    assert np.all(pomiar.wartosc_kradziezy_jako_ofiara == 0.0)
     assert np.all(pomiar.krok_smierci == -1)
     assert np.all(pomiar.przyczyna_smierci == PRZYCZYNA_ZYJE)
     assert np.all(pomiar.akcje_licznik == 0)
     assert pomiar.zdarzenia == []
+
+
+def test_pusty_pomiar_zapisuje_roznorodnosc_poczatkowa():
+    """Pomiar przechowuje różnorodność obliczoną na początku pokolenia."""
+    pomiar = pusty_pomiar(N=N, roznorodnosc=1.25)
+
+    assert pomiar.roznorodnosc == 1.25
 
 
 def test_puste_pomiary_maja_niezalezne_listy_zdarzen():
@@ -180,6 +204,8 @@ def test_zarejestruj_dzielenie_i_pelne_zdarzenie(pomiar, stan):
 
     assert pomiar.S.tolist() == [1, 0, 0]
     assert pomiar.D.tolist() == [1, 0, 0]
+    assert pomiar.liczba_otrzymanych_darow.tolist() == [0, 1, 0]
+    assert pomiar.wartosc_otrzymanych_darow.tolist() == [0.0, 1.0, 0.0]
     assert pomiar.akcje_licznik[DZIEL] == 1
     assert tuple(pomiar.zdarzenia[0]) == KOLUMNY_DYLEMATY
     assert pomiar.zdarzenia[0] == {
@@ -197,14 +223,14 @@ def test_zarejestruj_dzielenie_i_pelne_zdarzenie(pomiar, stan):
 
 
 @pytest.mark.parametrize(
-    ("akcja", "nazwa_licznika", "klasa"),
+    ("akcja", "nazwa_licznika", "klasa", "wynik"),
     [
-        (KRADNIJ, "K", "kradziez"),
-        (NIC, "N_o", "obojetna"),
+        (KRADNIJ, "K", "kradziez", PORAZKA),
+        (NIC, "N_o", "obojetna", WYKONANA),
     ],
 )
 def test_zarejestruj_klasyfikuje_kradziez_i_akcje_obojetna(
-    pomiar, stan, akcja, nazwa_licznika, klasa
+    pomiar, stan, akcja, nazwa_licznika, klasa, wynik
 ):
     """Kradzież zwiększa K, a każda inna niż dzielenie i kradzież zwiększa N_o."""
     zasoby_start = np.array([2.0, 3.0, 0.0])
@@ -217,13 +243,63 @@ def test_zarejestruj_klasyfikuje_kradziez_i_akcje_obojetna(
         j=1,
         akcja=akcja,
         dylemat_i=True,
-        wynik=SUKCES,
+        wynik=wynik,
         kwota=0.0,
     )
 
     assert getattr(pomiar, nazwa_licznika)[0] == 1
     assert pomiar.D[0] == 1
     assert pomiar.zdarzenia[0]["klasa"] == klasa
+
+
+def test_zarejestruj_udana_kradziez_po_stronie_ofiary(pomiar, stan):
+    """Udana kradzież zapisuje liczbę i wartość straty u celu akcji."""
+    zarejestruj(
+        pomiar,
+        stan,
+        np.array([2.0, 3.0, 0.0]),
+        i=0,
+        j=1,
+        akcja=KRADNIJ,
+        dylemat_i=True,
+        wynik=SUKCES,
+        kwota=1.5,
+    )
+
+    assert pomiar.liczba_kradziezy_jako_ofiara.tolist() == [0, 1, 0]
+    assert pomiar.wartosc_kradziezy_jako_ofiara.tolist() == [0.0, 1.5, 0.0]
+
+
+def test_zarejestruj_nieudane_interakcje_nie_zmieniaja_transferow(pomiar, stan):
+    """Nieudana kradzież i niewykonany dar nie przenoszą zasobów."""
+    zasoby_start = np.array([2.0, 3.0, 0.0])
+    zarejestruj(
+        pomiar,
+        stan,
+        zasoby_start,
+        i=0,
+        j=1,
+        akcja=KRADNIJ,
+        dylemat_i=True,
+        wynik=PORAZKA,
+        kwota=0.0,
+    )
+    zarejestruj(
+        pomiar,
+        stan,
+        zasoby_start,
+        i=0,
+        j=1,
+        akcja=DZIEL,
+        dylemat_i=True,
+        wynik=NIEWYKONANA,
+        kwota=0.0,
+    )
+
+    assert np.all(pomiar.liczba_otrzymanych_darow == 0)
+    assert np.all(pomiar.wartosc_otrzymanych_darow == 0.0)
+    assert np.all(pomiar.liczba_kradziezy_jako_ofiara == 0)
+    assert np.all(pomiar.wartosc_kradziezy_jako_ofiara == 0.0)
 
 
 def test_zarejestruj_poza_dylematem_zlicza_tylko_akcje(pomiar, stan):

@@ -141,3 +141,20 @@ def nowe_pokolenie(
     stan.zywy[:] = True
     stan.pokolenie += 1
     return rodzice
+
+
+def roznorodnosc(genomy: NDArray[np.float64]) -> float:
+    """Średnia odległość euklidesowa między genomami (pary i < j); N < 2 → 0.0.
+
+    Stała długość genomu (D2) – wartości porównywalne między pokoleniami;
+    spadek do 0 = populacja klonów.
+    """
+    N = genomy.shape[0]
+    if N < 2:
+        return 0.0
+    # ||a − b||² = ||a||² + ||b||² − 2·a·b – bez tymczasowej tablicy N×N×L
+    kwadraty = (genomy ** 2).sum(axis=1)
+    d2 = kwadraty[:, None] + kwadraty[None, :] - 2.0 * genomy @ genomy.T
+    np.clip(d2, 0.0, None, out=d2)   # zaokrąglenia mogą dać minimalnie < 0
+    i, j = np.triu_indices(N, k=1)
+    return float(np.sqrt(d2[i, j]).mean())

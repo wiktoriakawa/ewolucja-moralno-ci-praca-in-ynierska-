@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
 
-from moralnosc.stan import DZIEL, KRADNIJ, LICZBA_AKCJI, PUSTE, Stan
+from moralnosc.stan import DZIEL, KRADNIJ, LICZBA_AKCJI, PUSTE, SUKCES, Stan
 
 
 PRZYCZYNA_ZYJE = 0
@@ -45,12 +45,22 @@ class Pomiar:
     pól, a ``kw_only=True`` wymaga podawania pól konstruktora z nazwami.
     """
 
+    # --- dane całego pokolenia ---
+    # Średnia odległość euklidesowa między genomami na początku pokolenia.
+    roznorodnosc: float
+
     # --- decyzje agentów w sytuacjach dylematu ---
     S: NDArray[np.int64]  # N, liczba intencji dzielenia
     K: NDArray[np.int64]  # N, liczba intencji kradzieży
     # N, liczba intencji akcji obojętnych 0–4 i 7 w dylematach.
     N_o: NDArray[np.int64]
     D: NDArray[np.int64]  # N, liczba wszystkich napotkanych dylematów
+
+    # --- zasoby otrzymane lub utracone w interakcjach ---
+    liczba_otrzymanych_darow: NDArray[np.int64]
+    wartosc_otrzymanych_darow: NDArray[np.float64]
+    liczba_kradziezy_jako_ofiara: NDArray[np.int64]
+    wartosc_kradziezy_jako_ofiara: NDArray[np.float64]
 
     # --- zakończenie życia agentów w pokoleniu ---
     # Kroki są indeksowane od 0. Śmierć w K krokach ma numer 0…K−1, agent
@@ -67,22 +77,28 @@ class Pomiar:
     zdarzenia: list[dict[str, object]] = field(repr=False)
 
 
-def pusty_pomiar(*, N: int) -> Pomiar:
+def pusty_pomiar(*, N: int, roznorodnosc: float = 0.0) -> Pomiar:
     """Tworzy pusty pomiar dla ``N`` agentów na początku pokolenia.
 
-    Liczniki decyzji, dylematów i akcji zaczynają się od zera. Krok śmierci
-    ma wartość ``-1``, ponieważ żaden agent jeszcze nie umarł, natomiast kod
-    przyczyny śmierci wynosi ``0``, czyli agent nadal żyje. Lista zdarzeń jest
-    tworzona od nowa przy każdym wywołaniu, więc pomiary różnych pokoleń nie
-    współdzielą wpisów.
+    Pole ``roznorodnosc`` przechowuje wartość obliczoną z genomów na początku
+    pokolenia. Liczniki decyzji, dylematów i akcji zaczynają się od zera. Krok
+    śmierci ma wartość ``-1``, ponieważ żaden agent jeszcze nie umarł, natomiast
+    kod przyczyny śmierci wynosi ``0``, czyli agent nadal żyje. Lista zdarzeń
+    jest tworzona od nowa przy każdym wywołaniu, więc pomiary różnych pokoleń
+    nie współdzielą wpisów.
 
     Funkcja niczego nie losuje i nie modyfikuje obiektu ``Stan``.
     """
     return Pomiar(
+        roznorodnosc=float(roznorodnosc),
         S=np.zeros(N, dtype=np.int64),
         K=np.zeros(N, dtype=np.int64),
         N_o=np.zeros(N, dtype=np.int64),
         D=np.zeros(N, dtype=np.int64),
+        liczba_otrzymanych_darow=np.zeros(N, dtype=np.int64),
+        wartosc_otrzymanych_darow=np.zeros(N, dtype=np.float64),
+        liczba_kradziezy_jako_ofiara=np.zeros(N, dtype=np.int64),
+        wartosc_kradziezy_jako_ofiara=np.zeros(N, dtype=np.float64),
         krok_smierci=np.full(N, -1, dtype=np.int64),
         przyczyna_smierci=np.full(N, PRZYCZYNA_ZYJE, dtype=np.int64),
         akcje_licznik=np.zeros(LICZBA_AKCJI, dtype=np.int64),
@@ -123,12 +139,22 @@ def zarejestruj(
 ) -> None:
     """Rejestruje intencję agenta oraz szczegóły decyzji w dylemacie.
 
-    Każda wybrana akcja zwiększa licznik zbiorczy. Jeżeli decyzja została
-    podjęta w dylemacie, funkcja zwiększa ``D`` i dokładnie jeden z liczników
-    ``S``, ``K`` lub ``N_o`` oraz zapisuje zdarzenie przeznaczone do
-    ``dylematy.csv``. Zasoby w zdarzeniu pochodzą z początku kroku.
+    Każda wybrana akcja zwiększa licznik zbiorczy. Udane dzielenie zapisuje
+    zasoby otrzymane przez cel, a udana kradzież zasoby utracone przez ofiarę.
+    Jeżeli decyzja została podjęta w dylemacie, funkcja zwiększa ``D`` i
+    dokładnie jeden z liczników ``S``, ``K`` lub ``N_o`` oraz zapisuje
+    zdarzenie przeznaczone do ``dylematy.csv``. Zasoby w zdarzeniu pochodzą
+    z początku kroku.
     """
     pomiar.akcje_licznik[akcja] += 1
+    if wynik == SUKCES and j != PUSTE:
+        if akcja == DZIEL:
+            pomiar.liczba_otrzymanych_darow[j] += 1
+            pomiar.wartosc_otrzymanych_darow[j] += kwota
+        elif akcja == KRADNIJ:
+            pomiar.liczba_kradziezy_jako_ofiara[j] += 1
+            pomiar.wartosc_kradziezy_jako_ofiara[j] += kwota
+
     if not dylemat_i:
         return
 

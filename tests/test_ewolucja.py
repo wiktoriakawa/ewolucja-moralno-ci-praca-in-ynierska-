@@ -113,6 +113,47 @@ def test_rozmiesc_potomkow_na_pelnej_planszy():
     np.testing.assert_array_equal(zajetosc[pozycje[:, 0], pozycje[:, 1]], np.arange(H * W))
 
 
+# --- roznorodnosc --------------------------------------------------------------------
+
+def test_roznorodnosc_policzona_recznie():
+    # pary: 5, 0, 5 → średnia 10/3
+    genomy = np.array([[0.0, 0.0], [3.0, 4.0], [0.0, 0.0]])
+
+    wynik = ewolucja.roznorodnosc(genomy)
+
+    assert wynik == pytest.approx(10 / 3)
+    assert isinstance(wynik, float)
+    np.testing.assert_array_equal(genomy, [[0.0, 0.0], [3.0, 4.0], [0.0, 0.0]])  # wejście nietknięte
+
+
+def test_roznorodnosc_klonow_i_jednego_agenta():
+    assert ewolucja.roznorodnosc(np.ones((5, 7))) == 0.0
+    # klony o „nieokrągłych” wagach: bez clip mogłoby wyjść nan
+    klony = np.tile(np.random.default_rng(3).standard_normal(48), (6, 1))
+    wynik = ewolucja.roznorodnosc(klony)
+    assert np.isfinite(wynik) and wynik == pytest.approx(0.0, abs=1e-6)
+    # brak par
+    assert ewolucja.roznorodnosc(np.ones((1, 7))) == 0.0
+    assert ewolucja.roznorodnosc(np.ones((0, 7))) == 0.0
+
+
+def test_roznorodnosc_zgodna_z_wersja_wprost():
+    genomy = np.random.default_rng(0).standard_normal((20, 36))
+    # wprost: tablica 20×20×36 różnic
+    odleglosci = np.linalg.norm(genomy[:, None, :] - genomy[None, :, :], axis=2)
+    i, j = np.triu_indices(20, k=1)
+
+    assert ewolucja.roznorodnosc(genomy) == pytest.approx(odleglosci[i, j].mean())
+
+
+def test_roznorodnosc_nie_zalezy_od_kolejnosci_agentow():
+    rng = np.random.default_rng(1)
+    genomy = rng.standard_normal((10, 48))
+    permutacja = rng.permutation(10)
+
+    assert ewolucja.roznorodnosc(genomy[permutacja]) == pytest.approx(ewolucja.roznorodnosc(genomy))
+
+
 # --- pokolenie_zerowe ----------------------------------------------------------------
 
 def test_pokolenie_zerowe_spelnia_niezmienniki():

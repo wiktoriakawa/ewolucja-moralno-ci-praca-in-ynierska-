@@ -103,6 +103,41 @@ def porownaj_przebiegi(
     return wyniki
 
 
+def _sprawdz_transfery_do_celu(
+    agenci: pd.DataFrame,
+    dylematy: pd.DataFrame,
+    *,
+    akcja: int,
+    kolumna_liczby: str,
+    kolumna_wartosci: str,
+    nazwa_kontroli: str,
+) -> dict[str, object]:
+    """Porównuje pomiary odbiorców lub ofiar z udanymi zdarzeniami."""
+    indeks_agentow = pd.MultiIndex.from_frame(agenci[["pokolenie", "id"]])
+    udane = dylematy[dylematy["akcja"].eq(akcja) & dylematy["wynik"].eq(SUKCES)]
+    agregaty = udane.groupby(["pokolenie", "id_celu"])["kwota"].agg(
+        liczba="size",
+        wartosc="sum",
+    )
+    agregaty.index = agregaty.index.set_names(["pokolenie", "id"])
+    znane_cele = bool(agregaty.index.isin(indeks_agentow).all())
+    agregaty = agregaty.reindex(indeks_agentow, fill_value=0)
+
+    zgodna_liczba = (
+        agenci[kolumna_liczby].to_numpy() == agregaty["liczba"].to_numpy()
+    )
+    zgodna_wartosc = np.isclose(
+        agenci[kolumna_wartosci].to_numpy(),
+        agregaty["wartosc"].to_numpy(),
+    )
+    zgodne = zgodna_liczba & zgodna_wartosc
+    return _wynik_kontroli(
+        nazwa_kontroli,
+        znane_cele and bool(zgodne.all()),
+        f"bledni_agenci={int((~zgodne).sum())}, znane_cele={znane_cele}",
+    )
+
+
 def sprawdz_przebieg(
     konfiguracja: dict,
     pokolenia: pd.DataFrame,
@@ -143,6 +178,18 @@ def sprawdz_przebieg(
     )
     wyniki.append(
         _wynik_kontroli("brakujace_wartosci", brakujace == 0, str(brakujace))
+    )
+
+    poprawna_roznorodnosc = (
+        np.isfinite(pokolenia["roznorodnosc"])
+        & pokolenia["roznorodnosc"].ge(0)
+    )
+    wyniki.append(
+        _wynik_kontroli(
+            "roznorodnosc_skonczona_i_nieujemna",
+            bool(poprawna_roznorodnosc.all()),
+            f"bledne_pokolenia={int((~poprawna_roznorodnosc).sum())}",
+        )
     )
 
     rownanie_d = agenci["S"] + agenci["K"] + agenci["N_o"] == agenci["D"]
@@ -211,6 +258,41 @@ def sprawdz_przebieg(
             "sumy_agentow_rowne_pokoleniom",
             bool(zgodne_sumy.all().all()),
             f"bledne_pola={int((~zgodne_sumy).sum().sum())}",
+        )
+    )
+
+    kolumny_transferow = [
+        "liczba_otrzymanych_darow",
+        "wartosc_otrzymanych_darow",
+        "liczba_kradziezy_jako_ofiara",
+        "wartosc_kradziezy_jako_ofiara",
+    ]
+    nieujemne_transfery = agenci[kolumny_transferow].ge(0)
+    wyniki.append(
+        _wynik_kontroli(
+            "nieujemne_transfery",
+            bool(nieujemne_transfery.all().all()),
+            f"bledne_pola={int((~nieujemne_transfery).sum().sum())}",
+        )
+    )
+    wyniki.append(
+        _sprawdz_transfery_do_celu(
+            agenci,
+            dylematy,
+            akcja=DZIEL,
+            kolumna_liczby="liczba_otrzymanych_darow",
+            kolumna_wartosci="wartosc_otrzymanych_darow",
+            nazwa_kontroli="otrzymane_dary_zgodne_ze_zdarzeniami",
+        )
+    )
+    wyniki.append(
+        _sprawdz_transfery_do_celu(
+            agenci,
+            dylematy,
+            akcja=KRADNIJ,
+            kolumna_liczby="liczba_kradziezy_jako_ofiara",
+            kolumna_wartosci="wartosc_kradziezy_jako_ofiara",
+            nazwa_kontroli="kradzieze_ofiar_zgodne_ze_zdarzeniami",
         )
     )
 
@@ -387,7 +469,12 @@ def sprawdz_przebieg(
     kwota_w_zakresie = kwoty_kradziezy.ge(0) & kwoty_kradziezy.le(
         maksymalna_kradziez
     )
-    kwota_zgodna_z_wynikiem = kwoty_kradziezy.gt(0).eq(sukces_kradziezy)
+    # Sukces oznacza pomyślne losowanie, ale ofiara może nie mieć już zasobów,
+    # jeśli wcześniej w tym samym kroku opróżnił ją inny agent. Dlatego sukces
+    # może przenieść 0, natomiast wynik inny niż sukces musi mieć kwotę 0.
+    kwota_zgodna_z_wynikiem = sukces_kradziezy | np.isclose(
+        kwoty_kradziezy, 0.0
+    )
     poprawne_kradzieze = kwota_w_zakresie & kwota_zgodna_z_wynikiem
     wyniki.append(
         _wynik_kontroli(
